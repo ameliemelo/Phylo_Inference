@@ -3,98 +3,57 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader, TensorDataset
-from fonction import *
-import pandas as pd
-
-# Importing libraries 
-
-import torch
-from torch_geometric.data import Data
-from torch_geometric.loader import DataLoader
 import torch.nn.functional as F
-from torch_geometric.nn import GCNConv, ChebConv, SAGEConv, global_mean_pool 
 import rpy2.robjects as robjects # load R object 
 from rpy2.robjects import pandas2ri # load R object 
-from tqdm import tqdm # print progress bar 
-import pickle # save object 
-import matplotlib.pyplot as plt # plot
+from tqdm import tqdm 
+import matplotlib.pyplot as plt 
 import numpy as np
-import random as rd 
-
 from sklearn.preprocessing import StandardScaler
+
 torch.manual_seed(113)
 np.random.seed(113)
 
-def scale_summary_statistics(df, n_taxa):
-    # Identifier les colonnes à mettre à l'échelle
-    col_ltt_t = [col for col in df.columns if col.startswith("ltt_t")]
-    col_ltt_n = [col for col in df.columns if col.startswith("ltt_N")]
-    col_ss = [col for col in df.columns if col not in col_ltt_t + col_ltt_n ]
-    
-    # Mettre à l'échelle les colonnes ltt_t et ltt_N
-    df[col_ltt_t] /= abs(df[col_ltt_t].min())
-    df[col_ltt_n] /= n_taxa
-    
-    # Mettre à l'échelle les autres colonnes
-    scaler = StandardScaler()
-    df[col_ss] = scaler.fit_transform(df[col_ss])
-    
-    return df
-
 
 # Global parameters
-load_data = True # if data is already saved, don't compute just load it
 device = "cpu" # which GPU to use 
-batch_size_max = 64 # max. number of trees per batch #normalement 4
-n_train = 90000# size of training set 
-n_valid = 5000# size of validation set 
-n_test  = 5000 
+batch_size_max = 64 
+n_train = 900 # size of training set 
+n_valid = 50 # size of validation set 
+n_test  = 50 # size of test set 
 
 # Loading trees and their corresponding parameters
-
 
 pandas2ri.activate()
 fname_sumstat = "data/sumstat-100k-crbd.rds"
 fname_param = "data/true-parameters-100k-crbd.rds"
-# fname_sumstat= "data/new-phylogeny-crbd-sumstat-1.rds"
-# fname_param = "data/true-parameters-crbd-new-1.rds"
+
 readRDS = robjects.r['readRDS']
 df_sumstat = readRDS(fname_sumstat)
 df_sumstat = pandas2ri.rpy2py(df_sumstat) # data.frame containing tree information
+df_sumstat = df_sumstat.iloc[:, :-2] # remove true parameters
+n_trees = len(df_sumstat) 
+
+
 df_param = readRDS(fname_param)
 true = pandas2ri.rpy2py(df_param) # data.frame containing target parameters
-df_sumstat = df_sumstat.iloc[:, :-2] #enlever les true param
-df_sumstat= scale_summary_statistics(df_sumstat,1000)
-n_param = len(df_param) # number of parameters to guess for each tree 
-n_trees = len(df_sumstat) # total number of trees of the dataset 
-print(n_trees)
-# Creating train, valid and test set 
+with (robjects.default_converter + pandas2ri.converter).context():  
+    true= robjects.conversion.get_conversion().rpy2py(true)
+
+n_param = len(df_param) 
+
 
 # Choosing the tree indices for training, validation and test randomly 
 ind = np.arange(0, n_trees) 
-# rd.shuffle(ind) 
 np.random.shuffle(ind) 
 train_ind = ind[0:n_train]  
 valid_ind = ind[n_train:n_train + n_valid]  
 test_ind  = ind[n_train + n_valid:] 
-print(test_ind)
-
 indices = np.array(test_ind)
 
-# Spécifier le chemin du fichier de sauvegarde
-file_ind = "test_indices.npy"
 
 
-
-n_taxa = [100, 1000]  # range of phylogeny size
-
-device = "cpu"  # change if you want to compute on GPUs
-
-
-
-with (robjects.default_converter + pandas2ri.converter).context():  #To convert in pandas
-    true= robjects.conversion.get_conversion().rpy2py(true)
-
+# Creating train, valid and test set 
 train_inputs = torch.tensor(df_sumstat.iloc[train_ind].values).float().to(device)
 valid_inputs = torch.tensor(df_sumstat.iloc[valid_ind].values).float().to(device)
 test_inputs= torch.tensor(df_sumstat.iloc[test_ind].values).float().to(device)
@@ -115,14 +74,16 @@ valid_dl = DataLoader(valid_dataset, batch_size=batch_size_max, shuffle=False)
 test_dl = DataLoader(test_dataset, batch_size=1, shuffle=False)
 
 # Build the neural network
-
 n_in = df_sumstat.shape[1]
-print(n_in)  # number of neurons of the input layer = 84
+print(n_in)
 n_out = len(true) #2
 n_hidden = 100  # number of neurons in the hidden layers
 p_dropout = 0.01  # dropout probability
 n_epochs = 100 # maximum number of epochs for the training normalement 10
-patience = 5 # patience of the early stopping normalement 4
+patience = 5 # patience of the early stopping 
+epoch = 1
+trigger = 0
+last_loss = 100
 
 class SS_DNN(nn.Module):
     def __init__(self, n_in, n_out, n_hidden, p_dropout):
@@ -137,14 +98,17 @@ class SS_DNN(nn.Module):
 
     def forward(self, x):
         x = self.dropout(self.relu(self.fc1(x))) 
-        
         x = self.dropout(self.relu(self.fc2(x))) 
         x = self.dropout(self.relu(self.fc3(x))) 
         x = self.dropout(self.relu(self.fc4(x))) 
         x = self.fc5(x)
         return x
 
+
 dnn = SS_DNN(n_in, n_out, n_hidden, p_dropout).to(device)
+num_params = sum(p.numel() for p in dnn.parameters() if p.requires_grad)
+print(f"Number of parameters in the model : {num_params}")
+
 learning_rate = 0.001 
 betas = (0.9, 0.999)
 eps = 1e-08
@@ -154,7 +118,7 @@ amsgrad = False
 # Créer un optimiseur Adam avec les paramètres spécifiés
 opt = optim.Adam(dnn.parameters(), lr=learning_rate, betas=betas, eps=eps, weight_decay=weight_decay, amsgrad=amsgrad)
 
-loss_fn = nn.L1Loss()
+loss_fn = nn.L1Loss() #MAE Loss
 
 
 # Training
@@ -175,9 +139,6 @@ def valid_batch(inputs, targets):
 
 
 
-epoch = 1
-trigger = 0
-last_loss = 100
 train_losses = []
 valid_losses = []
 
@@ -216,7 +177,7 @@ plt.plot(range(1, len(train_losses) + 1), train_losses, label='Training Loss')
 plt.plot(range(1, len(valid_losses) + 1), valid_losses, label='Validation Loss')
 plt.xlabel('Epoch')
 plt.ylabel('Loss')
-plt.yscale('log')  # Utilisation de l'échelle logarithmique pour l'axe des y
+plt.yscale('log') 
 plt.title('Training and Validation Loss (Log Scale)')
 plt.legend()
 plt.show()
@@ -237,20 +198,12 @@ with torch.no_grad():
 
 pred_np = np.array(pred)
 
-# Spécifier le chemin du fichier de sauvegarde
-file_path = "pred_DNN_ss_crbd_mae.npy"
-
-# Enregistrer les prédictions dans le fichier
+# Specify the path to save the predictions
+file_path = "pred_crbd_MLP_ss.npy"
 np.save(file_path, pred_np)     
 
-# pred_loaded = np.load("pred_DNN_ss.npy")
-# print(pred_loaded[0])
 
 true = {'lambda': true['lambda'], 'mu': true['mu']}
-
-
-param_range_in = {"lambda": [0.1,1] , "mu":[0,0.9]}
-plot_error_barplot_all(pred, true, param_range_in,test_ind)
 
 
 
@@ -267,33 +220,3 @@ for i, param_name in enumerate(true.keys()):
     plt.title(param_name)
 plt.tight_layout()
 plt.show()
-
-
-# dnn.eval()
-# target = [[] for n in range(n_out)]
-# pred = [[] for _ in range(n_out)]
-# with torch.no_grad():
-#     for inputs, targets in tqdm(train_dl):
-#         inputs, targets = inputs.to(device), targets.to(device)
-#         output = dnn(inputs.to(device))
-#         p = output.cpu().numpy()
-#         t = targets.cpu().numpy()
-#         for i in range(n_out):
-#             pred[i].extend(p[:, i])
-#             target[i].extend(t[:, i])
-
-
-# true = {'lambda': true['lambda'], 'mu': true['mu']}
-
-
-# param_range_in = {"lambda": [0.1,1] , "mu":[0,0.9]}
-# plt.figure(figsize=(12, 6))
-# for i, param_name in enumerate(true.keys()):
-#     plt.subplot(1, n_out, i+1)
-#     plt.scatter(target[i], pred[i])
-#     plt.plot(target[i], target[i], color='red', linestyle='--')
-#     plt.xlabel('True')
-#     plt.ylabel('Predicted')
-#     plt.title(param_name)
-# plt.tight_layout()
-# plt.show()

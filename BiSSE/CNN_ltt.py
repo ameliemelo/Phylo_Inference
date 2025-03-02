@@ -1,45 +1,59 @@
-import numpy as np
 import torch
-import torch.nn as nn
-import torch.optim as optim
 from torch.utils.data import DataLoader, TensorDataset
 import torch.nn.functional as F
-import rpy2.robjects as robjects # load R object 
-from rpy2.robjects import pandas2ri # load R object 
+import pandas as pd
 from tqdm import tqdm # print progress bar 
 import matplotlib.pyplot as plt # plot
 import numpy as np
-import pandas as pd
-
+import torch.nn as nn
+import warnings
+warnings.filterwarnings("ignore")
+import random
+import rpy2.robjects as robjects # load R object 
+from rpy2.robjects import pandas2ri # load R object 
+random.seed(113)
+np.random.seed(113)
 torch.manual_seed(113)
-np.random.seed(113) 
+if torch.cuda.is_available():
+    torch.cuda.manual_seed_all(113) 
+torch.backends.cudnn.deterministic = True
+torch.backends.cudnn.benchmark = False
+
+torch.use_deterministic_algorithms(True)
 
 # Global parameters
+
 device = "cpu" # which GPU to use 
 batch_size_max = 64 # max. number of trees per batch 
-n_train = 90000 # size of training set 
-n_valid = 5000 # size of validation set 
-n_test  = 5000 # size of test set 
+n_train = 900# size of training set 
+n_valid = 50# size of validation set 
+n_test  = 50
 
-
-
+# Loading trees and their corresponding parameters
 pandas2ri.activate()
 
-fname_cblv = "data/cblv-100k-crbd.rds"
-fname_param = "data/true-parameters-100k-crbd.rds"
+fname_ltt = "/home/amelie/These/Phylo_Inference/data/ltt-100k-bisse.rds" #crbd ou bisse
+fname_param = "/home/amelie/These/Phylo_Inference/data/true-parameters-100k-bisse.rds"
 
 readRDS = robjects.r['readRDS']
-df_cblv= readRDS(fname_cblv)
-df_cblv = np.transpose(df_cblv) # array de 100 liste avec 2000 item
-df_cblv = pd.DataFrame(df_cblv)
 
+df_ltt = readRDS(fname_ltt)
+df_ltt = pandas2ri.rpy2py(df_ltt) # data.frame containing tree information
 df_param = readRDS(fname_param)
+df_param = pandas2ri.rpy2py(df_param) # data.frame containing target parameters
 true = pandas2ri.rpy2py(df_param) 
-with (robjects.default_converter + pandas2ri.converter).context():  #To convert in pandas
+with (robjects.default_converter + pandas2ri.converter).context():  
     true= robjects.conversion.get_conversion().rpy2py(true)
 
-n_param = len(df_param)
-n_trees = len(df_cblv)
+n_param = len(df_param) # number of parameters to guess for each tree 
+
+df_ltt.fillna(0, inplace=True) 
+df_ltt = np.transpose(df_ltt) 
+df_ltt = pd.DataFrame(df_ltt)
+n_trees = df_ltt.shape[0]
+
+print("chargement des données")
+
 
 
 # Choosing the tree indices for training, validation and test randomly 
@@ -50,19 +64,19 @@ train_ind = ind[0:n_train]
 valid_ind = ind[n_train:n_train + n_valid]  
 test_ind  = ind[n_train + n_valid:] 
 
+np.save("test_indices.npy", test_ind)
+# Choosing the tree indices for training, validation and test randomly 
 
-# Convert the data to PyTorch tensors
-train_inputs = torch.tensor(df_cblv.iloc[train_ind].values).float().to(device)
-valid_inputs = torch.tensor(df_cblv.iloc[valid_ind].values).float().to(device)
-test_inputs= torch.tensor(df_cblv.iloc[test_ind].values).float().to(device)
-
-
-train_targets = torch.tensor([[true['lambda'][i], true['mu'][i]] for i in train_ind]).float().to(device)
-valid_targets = torch.tensor([[true['lambda'][i], true['mu'][i]] for i in valid_ind]).float().to(device)
-test_targets = torch.tensor([[true['lambda'][i], true['mu'][i]] for i in test_ind]).float().to(device)
+train_inputs = torch.tensor(df_ltt.iloc[train_ind].values).float().to(device)
+valid_inputs = torch.tensor(df_ltt.iloc[valid_ind].values).float().to(device)
+test_inputs= torch.tensor(df_ltt.iloc[test_ind].values).float().to(device)
 
 
-# Create DataLoader objects for the training, validation, and test sets
+train_targets = torch.tensor([[true['lambda0'][i], true['q01'][i]] for i in train_ind]).float().to(device)
+valid_targets = torch.tensor([[true['lambda0'][i], true['q01'][i]] for i in valid_ind]).float().to(device)
+test_targets = torch.tensor([[true['lambda0'][i], true['q01'][i]] for i in test_ind]).float().to(device)
+
+
 train_dataset = TensorDataset(train_inputs, train_targets)
 valid_dataset = TensorDataset(valid_inputs, valid_targets)
 test_dataset = TensorDataset(test_inputs, test_targets)
@@ -73,14 +87,14 @@ test_dl = DataLoader(test_dataset, batch_size=1, shuffle=False)
 
 # Build the neural network
 
-n_input = df_cblv.shape[1] # number of neurons of the input layer = 2000
-n_out = len(true) #2
-n_hidden = 8 # number of neurons in the hidden layers
+n_input = df_ltt.shape[1]
+n_out = 2
+n_hidden = 8  # number of neurons in the hidden layers
 p_dropout = 0.01  # dropout probability
-n_epochs = 100  # maximum number of epochs for the training
-patience = 5  # patience of the early stopping
-n_layer  = 4
-ker_size =10
+n_epochs = 100  # maximum number of epochs for the training :100
+patience = 5  # patience of the early stopping: normalement 3
+n_layer  = 3
+ker_size =5
 epoch = 1
 trigger = 0
 last_loss = 100
@@ -92,11 +106,10 @@ class CNN(nn.Module):
         self.conv1 = nn.Conv1d(in_channels=1, out_channels=n_hidden, kernel_size=ker_size)
         self.conv2 = nn.Conv1d(in_channels=n_hidden, out_channels=2*n_hidden, kernel_size=ker_size)
         self.conv3 = nn.Conv1d(in_channels=2*n_hidden, out_channels=4*n_hidden, kernel_size=ker_size)
-        self.conv4 = nn.Conv1d(in_channels=4*n_hidden, out_channels=8*n_hidden, kernel_size=ker_size)
         n_flatten = self.compute_dim_output_flatten_cnn(n_input, n_layer, ker_size)
-        self.fc1 = nn.Linear(in_features=n_flatten * (8*n_hidden), out_features=100)
+        self.fc1 = nn.Linear(in_features=n_flatten * (4*n_hidden), out_features=100)
         self.fc2 = nn.Linear(in_features=100, out_features=n_out)
-        self.dropout = nn.Dropout(p=p_dropout) 
+        self.dropout = nn.Dropout(p=p_dropout)  
 
     def forward(self, x):
         x = F.relu(self.conv1(x))
@@ -108,18 +121,13 @@ class CNN(nn.Module):
         x = F.avg_pool1d(x, kernel_size=2)
         
         x = F.relu(self.conv3(x))
-        x = self.dropout(x) 
+        x = self.dropout(x)  
         x = F.avg_pool1d(x, kernel_size=2)
 
-        x = F.relu(self.conv4(x))
-        x = self.dropout(x)  
-        x = F.avg_pool1d(x, 2)
-        
-        # x = x.view(x.size(0), -1)
         x = torch.flatten(x, start_dim=1)
         
         x = F.relu(self.fc1(x))
-        x = self.dropout(x)
+        x = self.dropout(x)  
         x = self.fc2(x)
         return x
 
@@ -130,20 +138,20 @@ class CNN(nn.Module):
     
 
 
-# creation of the model
 cnn = CNN(n_input, n_out, n_hidden, n_layer, ker_size, p_dropout).to(device)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 cnn.to(device)
 
-learning_rate = 0.0005 
+
+learning_rate = 0.001
 betas = (0.9, 0.999)
-eps = 1e-5
+eps = 1e-08
 weight_decay = 0
 amsgrad = False
 
-opt = optim.Adam(cnn.parameters(), lr=learning_rate, betas=betas, eps=eps, weight_decay=weight_decay, amsgrad=amsgrad)
+opt = torch.optim.Adam(cnn.parameters(), lr=learning_rate, betas=betas, eps=eps, weight_decay=weight_decay, amsgrad=amsgrad)
 
-loss_fn = nn.L1Loss() #MAE loss
+loss_fn = nn.L1Loss()
 train_losses = []
 valid_losses = []
 
@@ -165,11 +173,11 @@ def valid_batch(inputs, targets):
 
 
 
-
 while epoch < n_epochs and trigger < patience:
     cnn.train()
     train_loss = []
     for inputs, targets in tqdm(train_dl):
+        targets = targets[:, [1, 0]]
         inputs, targets = inputs.to(device), targets.to(device)
         loss = train_batch(inputs.unsqueeze(1), targets)
         train_loss.append(loss)
@@ -180,6 +188,7 @@ while epoch < n_epochs and trigger < patience:
     valid_loss = []
     with torch.no_grad():
         for inputs, targets in tqdm(valid_dl):
+            targets = targets[:, [1, 0]]
             inputs, targets = inputs.to(device), targets.to(device)
             loss = valid_batch(inputs.unsqueeze(1), targets)
             valid_loss.append(loss)
@@ -212,29 +221,13 @@ with torch.no_grad():
         inputs, targets = inputs.to(device), targets.to(device)
         output = cnn(inputs.unsqueeze(1).to(device))
         p = output.cpu().numpy()
-
         for i in range(n_out):
             pred[i].extend(p[:, i])
         
-pred_np = np.array(pred)
-# Save the predictions
-file_path = "pred_CNN_cblv_mae_lr.npy"
-np.save(file_path, pred_np)     
 
-plt.figure(figsize=(12, 6))
-true = {'lambda': true['lambda'], 'mu': true['mu']}
+pred = np.array(pred)
 
-for i, param_name in enumerate(true.keys()):
-    plt.subplot(1, n_out, i+1)
-    plt.scatter(true[param_name][test_ind], pred[i])
-    plt.plot(true[param_name][test_ind], true[param_name][test_ind], color='red', linestyle='--')
-    plt.xlabel('True')
-    plt.ylabel('Predicted')
-    plt.title(param_name)
-plt.tight_layout()
-plt.show()
+file_path = "pred_bisse_CNN_ltt.npy"
 
-
-
-
+np.save(file_path, pred)     
 

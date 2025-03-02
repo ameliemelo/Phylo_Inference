@@ -33,7 +33,7 @@ get_edge_df <- function(tree){
 get_node_df <- function(tree){
   n_nodes <- 2*tree$Nnode+1
   name.attr <- c("dist", "mean.edge", "time.asym",
-                 "clade.asym", "ancestor", "descendant","state")
+                 "clade.asym", "ancestor", "descendant") # add the state if BiSSE model is used
   n_attr    <- length(name.attr)
   nodes.attr <- vector(mode = "list", length = n_attr)
   names(nodes.attr) <- name.attr

@@ -1,131 +1,125 @@
 import torch
-import csv
 from torch_geometric.data import Data
 from torch_geometric.loader import DataLoader
 import torch.nn as nn
 import torch.nn.functional as F
-from torch_geometric.nn import GCNConv, ChebConv, SAGEConv, global_mean_pool  # load R object 
+from torch_geometric.nn import GCNConv
 import torch_geometric
+import rpy2.robjects as robjects # load R object 
+from rpy2.robjects import pandas2ri # load R object 
 from tqdm import tqdm # print progress bar 
 import pickle # save object 
-import matplotlib.pyplot as plt # plot
 import numpy as np
-import random as rd 
-from fonction import *
 import warnings
 warnings.filterwarnings("ignore")
 from torch_scatter import scatter_add
-
-import matplotlib.pyplot as plt
 import time
 import os
 os.environ['TORCH_USE_CUDA_DSA'] = '1'
 os.environ['CUDA_LAUNCH_BLOCKING'] = '1'
 import random
-import sys
 
-random.seed(42)
-np.random.seed(42)
-torch.manual_seed(42)
+random.seed(113)
+np.random.seed(113)
+torch.manual_seed(113)
 if torch.cuda.is_available():
-    torch.cuda.manual_seed_all(42) 
+    torch.cuda.manual_seed_all(113) 
 torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = False
-torch_geometric.seed_everything(42)
+torch_geometric.seed_everything(113)
 
 torch.use_deterministic_algorithms(True)
 
 # Global parameters
-load_data =True# if data is already saved, don't compute just load it
+load_data =False# if data is already saved on the good format, else False
 device = "cuda" if torch.cuda.is_available() else "cpu"  # Use GPU if available
 batch_size_max = 64 # max. number of trees per batch 
-n_train = 90000# size of training set 
-n_valid = 5000# size of validation set 
-n_test  = 5000
+n_train = 900 # size of training set 
+n_valid = 50 # size of validation set 
+n_test  = 50
 
+pandas2ri.activate()
+fname_graph = "/home/amelie/These/Phylo_Inference/data/graph-100k-bisse.rds"
+fname_param = "/home/amelie/These/Phylo_Inference/data/true-parameters-100k-bisse.rds"
+readRDS = robjects.r['readRDS']
+df_graph = readRDS(fname_graph)
+df_graph = pandas2ri.rpy2py(df_graph) # data.frame containing tree information
 
-# Loading trees and their corresponding parameters
+df_param = readRDS(fname_param)
+df_param = pandas2ri.rpy2py(df_param) # data.frame containing target parameters
 
-# fname_graph = "data/graph-100k-bisse.rds"
-fname_param = "data/true-parameters-100k-crbd.rds"
+n_param = len(df_param) # number of parameters to guess for each tree 
+n_trees =len(df_graph) # total number of trees of the dataset 
 
-n_trees = 100000 # total number of trees of the dataset 
 
 # Format data 
 
-# def convert_df_to_tensor(df_node, df_edge, params):
+def convert_df_to_tensor(df_node, df_edge, params):
 
-#     """
-#     Convert the data frames containing node and edge information 
-#     to a torch tensor that can be used to feed neural 
-#     """
+    """
+    Convert the data frames containing node and edge information 
+    to a torch tensor that can be used to feed neural 
+    """
+    # Sort the nodes by their indices
+    df_node_sorted = df_node.sort_values(by=df_node.columns[0])
+    n_node, n_edge = df_node_sorted.shape[0], df_edge.shape[0]
+    l1, l2 = [], []
 
-#     df_node_sorted = df_node.sort_values(by=df_node.columns[0])
-#     n_node, n_edge = df_node_sorted.shape[0], df_edge.shape[0]
-#     l1, l2 = [], []
+    # Update edge indices based on the new node order
+    node_id_map = {old_id: new_id for new_id, old_id in enumerate(df_node_sorted.index)}
+    for i in range(n_edge):
+        edge = df_edge.iloc[i]
+        u, v = node_id_map[str(int(edge[0]))], node_id_map[str(int(edge[1]))]
+        l1.extend([u, v])
+        l2.extend([v, u])   
+    edge_index = torch.tensor([l1, l2], dtype=torch.long)
+    max_value = df_node_sorted['dist'].max().max()
 
-#     # Mettre à jour les indices des arêtes en fonction du nouvel ordre des nœuds
-#     node_id_map = {old_id: new_id for new_id, old_id in enumerate(df_node_sorted.index)}
-#     for i in range(n_edge):
-#         edge = df_edge.iloc[i]
-#         u, v = node_id_map[str(int(edge[0]))], node_id_map[str(int(edge[1]))]
-#         l1.extend([u, v])
-#         l2.extend([v, u])   
-#     edge_index = torch.tensor([l1, l2], dtype=torch.long)
-#     max_value = df_node_sorted['dist'].max().max()
+    # Subtract the maximum value from each element in the DataFrame
+    df_node_sorted['dist'] -= max_value
 
-#     # Soustraire la plus grande valeur de chaque élément du DataFrame
-#     df_node_sorted['dist'] -= max_value
+    tolerance = 1e-9
+    df_node_sorted['dist'] = df_node_sorted['dist'].apply(lambda x: 0 if np.abs(x) < tolerance else x)
 
-#     tolerance = 1e-9
+    # Replace values in 'state' column: -1 -> 0 and 0 -> -1
+    df_node_sorted['state'] = df_node_sorted['state'].replace({-1: 0, 0: -1})
 
-#     # Arrondir les valeurs proches de zéro dans la colonne 'dist'
-#     df_node_sorted['dist'] = df_node_sorted['dist'].apply(lambda x: 0 if np.abs(x) < tolerance else x)
-#     # Construire le tenseur des caractéristiques des nœuds
-#     x = torch.tensor(df_node_sorted.values, dtype=torch.float)
+    x = torch.tensor(df_node_sorted.values, dtype=torch.float)
+    y = torch.tensor(params, dtype=torch.float)
 
-#     # Construire le tenseur des paramètres cibles
-#     y = torch.tensor(params, dtype=torch.float)
-
-#     # Créer un objet Data
-#     data = Data(x=x, edge_index=edge_index, y=y)
-#     return data
-#/gpfswork/rech/hvr/uhd88jk/overfit/Reproduction_resultat/
-
-fname="/gpfswork/rech/hvr/uhd88jk/overfit/Reproduction_resultat/data/graph-100k-cr_dist_tips_sorted_maxvalue_geomtensor.obj"
-# fname="data/graph-100k-cr_dist_tips_sorted_maxvalue_geomtensor.obj"
+    data = Data(x=x, edge_index=edge_index, y=y)
+    return data
 
 
+fname="/home/amelie/These/Phylo_Inference/data/graph-100k-bisse_dist_tips_sorted_maxvalue_geomtensor.obj"
 
 
-# if (not load_data):
+if (not load_data):
 
-#     data_list  = []
-#     print("Formating data...")
-#     for n in tqdm(range(n_trees)):
-#         df_node, df_edge = df_graph[n][0], df_graph[n][1] #0 recup node et attribut 1 recup infos edges
-#         with (robjects.default_converter + pandas2ri.converter).context():  #To convert in pandas
-#             df_edge= robjects.conversion.get_conversion().rpy2py(df_edge)
-#             df_node= robjects.conversion.get_conversion().rpy2py(df_node)
-#             columns_to_drop = ['mean.edge','time.asym', 'clade.asym', 'descendant', 'ancestor']
-#             df_node = df_node.drop(columns=columns_to_drop)
-#         selected_indices = [0, 4]  # 1er et 5ème éléments en utilisant des indices 0-based
-#         params = [df_param[i][n] for i in selected_indices]
-#         data = convert_df_to_tensor(df_node, df_edge, params)
-#         data_list.append(data)
-#     print("Formating data... Done.")
+    data_list  = []
+    print("Formating data...")
+    for n in tqdm(range(n_trees)):
+        df_node, df_edge = df_graph[n][0], df_graph[n][1] # get the node and edge information 
+        with (robjects.default_converter + pandas2ri.converter).context(): 
+            df_edge= robjects.conversion.get_conversion().rpy2py(df_edge)
+            df_node= robjects.conversion.get_conversion().rpy2py(df_node)
+            columns_to_drop = ['mean.edge','time.asym', 'clade.asym', 'descendant', 'ancestor']
+            df_node = df_node.drop(columns=columns_to_drop)
+        selected_indices = [0, 4]  # drop columns that are not needed
+        params = [df_param[i][n] for i in selected_indices]
+        data = convert_df_to_tensor(df_node, df_edge, params)
+        data_list.append(data)
+    print("Formating data... Done.")
 
-#     file = open(fname, "wb") # file handler 
-#     pickle.dump(data_list, file) # save data_list
-#     print("Formated data saved.")
+    file = open(fname, "wb") # file handler 
+    pickle.dump(data_list, file) # save data_list
+    print("Formated data saved.")
 
-# else:
+else:
 
-file = open(fname, "rb")
-data_list = pickle.load(file)
-print(data_list[0].x)
+    file = open(fname, "rb")
+    data_list = pickle.load(file)
 
-# Creating train, valid and test set 
 
 # Choosing the tree indices for training, validation and test randomly 
 ind = np.arange(0, n_trees) 
@@ -134,7 +128,8 @@ np.random.shuffle(ind)
 train_ind = ind[0:n_train]  
 valid_ind = ind[n_train:n_train + n_valid]  
 test_ind  = ind[n_train + n_valid:] 
-print(test_ind)
+
+
 # Splitting the dataset between training, validation and test. 
 train_data = [data_list[i].to(device=device) for i in train_ind]
 valid_data = [data_list[i].to(device=device) for i in valid_ind]
@@ -145,69 +140,10 @@ train_dl = DataLoader(train_data, batch_size = batch_size_max, shuffle = True)
 valid_dl = DataLoader(valid_data, batch_size = batch_size_max, shuffle = False)
 test_dl  = DataLoader(test_data , batch_size = 1)
 
-import csv
-
-# Fonction pour sauvegarder les variables dans un fichier CSV
-def save_to_csv(file_path, data_dict):
-    # Si le fichier n'existe pas, on crée un en-tête
-    file_exists = False
-    try:
-        with open(file_path, 'r') as f:
-            file_exists = True
-    except FileNotFoundError:
-        file_exists = False
-
-    with open(file_path, 'a', newline='') as f:
-        writer = csv.DictWriter(f, fieldnames=data_dict.keys())
-
-        if not file_exists:
-            writer.writeheader()  # Écrire l'en-tête seulement si le fichier est vide
-        writer.writerow(data_dict)
-
-import json  # Pour enregistrer des structures complexes en JSON
-
-
-import pandas as pd
-
-import json
-
-def save_to_file(file_path, data):
-    """Sauvegarde les données dans un fichier JSON."""
-    with open(file_path, 'a') as f:
-        json.dump(data, f)
-        f.write('\n')  # Pour séparer chaque enregistrement
-
-
-def save_x_padded_to_csv(file_path, step, x_padded, stage):
-    """
-    Sauvegarder `x_padded` après chaque étape (stage) dans un fichier CSV.
-    """
-    x_padded_flat = x_padded.cpu().detach().numpy().flatten()  # Aplatir le tenseur
-    data_dict = {
-        'step': [step],
-        'stage': [stage],  # Ajouter le nom de l'étape (stage)
-        'x_padded': [x_padded_flat.tolist()]  # Convertir en liste pour éviter des problèmes de format
-    }
-    
-    # Vérifier si le fichier existe déjà
-    try:
-        # Si le fichier existe, ajouter les nouvelles données
-        df = pd.read_csv(file_path)
-        df = pd.concat([df, pd.DataFrame([data_dict])], ignore_index=True)
-    except FileNotFoundError:
-        # Si le fichier n'existe pas, créer un nouveau DataFrame
-        df = pd.DataFrame(data_dict)
-
-    # Sauvegarder les données dans le CSV
-    df.to_csv(file_path, index=False)
-
-
-
 
 
 def get_valid_node_indices(initial_num_nodes):
     num_conv_layers =3
-    ker_size = 5
     pooling_factor = 2
     valid_node_count = initial_num_nodes
     for _ in range(num_conv_layers):
@@ -215,11 +151,6 @@ def get_valid_node_indices(initial_num_nodes):
 
     return valid_node_count
 
-# def get_valid_node_indices(initial_num_nodes):
-#     pooling_factor =2
-#     reduction_factor = pooling_factor ** 3  # Since num_conv_layers = 3
-#     valid_node_count = (initial_num_nodes - 2) // reduction_factor #car ker_size //2 = 2
-#     return valid_node_count
 
 def to_dense_batch(x, batch=None, fill_value=0, max_num_nodes=2000):
     if batch is None and max_num_nodes is None:
@@ -252,14 +183,14 @@ class GNN(torch.nn.Module):
         self.conv3 = nn.Conv1d(in_channels=4*n_hidden, out_channels=8*n_hidden, kernel_size=ker_size, padding = "same")
         self.fc1 = nn.Linear(in_features=8*n_hidden*self.n_parts, out_features=100)
         self.fc2 = nn.Linear(100, n_out)
-        self.dropout = nn.Dropout(p=p_dropout) # Utilisez nn.Dropout au lieu de p_dropout
+        self.dropout = nn.Dropout(p=p_dropout)
 
 
     def forward(self, data):
         x, edge_index, batch = data.x, data.edge_index, data.batch
         batch_size = data.batch.max().item() + 1
 
-        file_path = "run3.csv"
+        # Message Passing layers
         x = self.mp1(x, edge_index)
         x = F.relu(x)
         x = self.dropout(x)
@@ -268,14 +199,15 @@ class GNN(torch.nn.Module):
         x = F.relu(x)
         x = self.dropout(x)
 
+        # Padding
         x, num_nodes = to_dense_batch(x, batch)
         x_padded = x.permute(0, 2, 1)
 
+        # Convolutional layers
         x_padded = self.conv1(x_padded)
         x_padded = F.relu(x_padded)
         x_padded = self.dropout(x_padded)
         x_padded = F.avg_pool1d(x_padded, kernel_size=2)
-
 
         x_padded = F.relu(self.conv2(x_padded))
         x_padded = self.dropout(x_padded)
@@ -285,17 +217,17 @@ class GNN(torch.nn.Module):
         x_padded = self.dropout(x_padded)
         x_padded = F.avg_pool1d(x_padded, kernel_size=2)
 
-        # Calculate the valid nodes for each graph
+        # Calculate the valid nodes for each graph (without padding)
         valid_nodes = [get_valid_node_indices(n.item()) for n in num_nodes]
 
         selected_nodes_list = []
         for i, valid in enumerate(valid_nodes):
-            valid_indices = torch.arange(valid)  # Générer les indices des nœuds valides
+            valid_indices = torch.arange(valid)  # Generate valid node indices
 
-            base_size = valid // self.n_parts  # Taille de base de chaque partie
-            remainder = valid % self.n_parts   # Nombre d'indices restants à répartir
+            base_size = valid // self.n_parts  # Base size of each part
+            remainder = valid % self.n_parts   # Number of remaining indices to distribute
 
-            # Calculer les tailles des parties
+            # Calculate the sizes of the parts
             part_sizes = [base_size + 1 if j < remainder else base_size for j in range(self.n_parts)]
             part_means = []
             start_idx = 0
@@ -315,7 +247,7 @@ class GNN(torch.nn.Module):
         selected_nodes = torch.stack(selected_nodes_list)
         selected_nodes = selected_nodes.permute(0, 2, 1)
 
-        # Aplatir et passer à travers des couches fully connected finales
+        # Flatten and pass through final fully connected layers
         selected_nodes_flattened = selected_nodes.reshape(batch_size, -1)
 
         out = F.relu(self.fc1(selected_nodes_flattened))
@@ -352,7 +284,7 @@ def train(model, data):
     batch_size = data.batch.max().item() + 1 # number of trees in the batch 
     target = data.y.reshape([batch_size, n_out])
     loss = loss_fn(out, target)
-    loss.backward() # backward propagation 
+    loss.backward() 
     optimizer.step()
     return(loss)
 
@@ -368,7 +300,7 @@ def valid(model, data):
 
 n_hidden = 8  # number of neurons in the hidden layers
 p_dropout = 0.01  # dropout probability
-# n_epochs = 100  # maximum number of epochs for the training :100
+n_epochs = 100  # maximum number of epochs for the training :100
 patience = 5  # patience of the early stopping: normalement 3
 n_layer  = 3
 ker_size =5
@@ -377,18 +309,13 @@ trigger = 0
 last_loss = 1000
 
 
-n_in = data_list[0].num_node_features #6
-
+n_in = data_list[0].num_node_features 
 n_out = len(data_list[0].y)
-n_epochs = 100
 model = GNN(n_in, n_out, n_hidden, ker_size, p_dropout).to(device=device)
 
-optimizer = torch.optim.Adam(model.parameters(), lr=0.0005, weight_decay=1e-5)
+optimizer = torch.optim.Adam(model.parameters(), lr=0.001, weight_decay=1e-5)
 train_losses = []
 valid_losses = []
-losses_every_100_batches = []
-model_name = "3GNN_3conv_10bin_Crbd_dist_max_sorted"
-
 # Training loop 
 
 while epoch < n_epochs and trigger <= patience:
@@ -436,15 +363,6 @@ while epoch < n_epochs and trigger <= patience:
 
 
 
-# losses_every_100_batches = np.array(losses_every_100_batches)
-# print("losses_every_100_batches", losses_every_100_batches)
-
-# # Spécifier le chemin du fichier de sauvegarde
-# file = "results/3losses_every_100_batches_GNN_3conv_10bin_Crbd_dist_max_sorted.npy"
-
-# Enregistrer les prédictions dans le fichier
-#np.save(file, losses_every_100_batches)
-
 n_param = 2
 pred_list, true_list = [[] for n in range(n_param)], [[] for n in range(n_param)]
 model.eval()
@@ -457,33 +375,7 @@ for data in test_dl:
         true_list[n].append(true_params[n])
 
 pred_np = np.array(pred_list)
-print(pred_np)
 
-# Spécifier le chemin du fichier de sauvegarde
-file_path = "/gpfswork/rech/hvr/uhd88jk/overfit/Reproduction_resultat/results/CRBD_gcn/pooling/gnn_crbd_mae_10bin_padding_same_pat5_seed42.npy"
+file_path = "pred_bisse_GNN_PhyloPool.npy"
 
-# Enregistrer les prédictions dans le fichier
 np.save(file_path, pred_np)     
-
-
-pred_list = np.array(pred_list)
-true_list = np.array(true_list)
-
-error_lambda = (np.sum((pred_list[0]-true_list[0])**2))/np.sum(true_list[0]**2)
-print("lambda0",error_lambda)
-error_mu = (np.sum((pred_list[1]-true_list[1])**2))/np.sum(true_list[1]**2)
-print("mu",error_mu)
-
-
-n = len(pred_list[0])
-print("Mean relative absolute error")
-error_lambda0 = np.sum(np.abs(pred_list[0] - true_list[0]) / true_list[0])
-print("lambda0", error_lambda0/n)
-error_q01 = np.sum(np.abs(pred_list[1] - true_list[1]) / true_list[1])
-print("q01", error_q01/n)
-
-print("MAE")
-error_lambda0 = np.sum(np.abs(pred_list[0] - true_list[0]))
-print("lambda0", error_lambda0/n)
-error_q01 = np.sum(np.abs(pred_list[1] - true_list[1]))
-print("q01", error_q01/n)

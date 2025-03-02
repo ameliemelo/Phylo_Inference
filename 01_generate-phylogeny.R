@@ -4,8 +4,8 @@ source("R/phylo-inference-ml.R")
 
 # Set up
 model <- "bisse" # type of the model, either: "crbd" or "bisse"
-n_trees <-10 # number of trees to generate
-n_taxa <- c(100, 200) # range size of the generated phylogenies 100 a 1000
+n_trees <-1000 # number of trees to generate
+n_taxa <- c(100, 1000) # range size of the generated phylogenies 100 a 1000
 
 # Define space parameters.
 # For the CRBD model
@@ -37,6 +37,6 @@ phylo <- out$trees
 params <- out$param
 
 
-saveRDS(phylo, paste("data/test10tree-", model, "-new.rds", sep=""))
-saveRDS(params, paste("data/test10tree-true-parameters--", model, "-new.rds", sep=""))
+saveRDS(phylo, "data/tree-100k-bisse.rds")
+saveRDS(params, "data/true-parameters-100k-bisse.rds")
 

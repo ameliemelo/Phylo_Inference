@@ -1,28 +1,22 @@
 import torch
-import csv
-from torch_geometric.data import Data
 from torch_geometric.loader import DataLoader
 import torch.nn as nn
 import torch.nn.functional as F
-from torch_geometric.nn import GCNConv, ChebConv, SAGEConv, global_mean_pool  # load R object 
+from torch_geometric.data import Data
+from torch_geometric.nn import GCNConv, global_mean_pool 
 import torch_geometric
-from tqdm import tqdm # print progress bar 
-import pickle # save object 
-import matplotlib.pyplot as plt # plot
+import pickle
 import numpy as np
-import random as rd 
-from fonction import *
+from tqdm import tqdm
+import rpy2.robjects as robjects # load R object 
+from rpy2.robjects import pandas2ri # load R object 
 import warnings
 warnings.filterwarnings("ignore")
-from torch_scatter import scatter_add
-
-import matplotlib.pyplot as plt
 import time
 import os
 os.environ['TORCH_USE_CUDA_DSA'] = '1'
 os.environ['CUDA_LAUNCH_BLOCKING'] = '1'
 import random
-import sys
 
 random.seed(113)
 np.random.seed(113)
@@ -36,29 +30,95 @@ torch_geometric.seed_everything(113)
 torch.use_deterministic_algorithms(True)
 
 # Global parameters
-load_data =True# if data is already saved, don't compute just load it
+
+load_data =True# if data is already saved on the good format, else False
 device = "cuda" if torch.cuda.is_available() else "cpu"  # Use GPU if available
-batch_size_max = 64 # max. number of trees per batch 
-n_train = 90000# size of training set 
-n_valid = 5000# size of validation set 
-n_test  = 5000
+batch_size_max = 64 
+n_train = 900 # size of training set 
+n_valid = 50 # size of validation set 
+n_test  = 50 # size of test set 
 
-
-# Loading trees and their corresponding parameters
-
-# fname_graph = "data/graph-100k-bisse.rds"
+pandas2ri.activate()
+fname_graph = "data/graph-100k-crbd.rds"
 fname_param = "data/true-parameters-100k-crbd.rds"
+readRDS = robjects.r['readRDS']
+df_graph = readRDS(fname_graph)
+df_graph = pandas2ri.rpy2py(df_graph) # data.frame containing tree information
 
-n_trees = 100000 # total number of trees of the dataset 
+df_param = readRDS(fname_param)
+df_param = pandas2ri.rpy2py(df_param) # data.frame containing target parameters
 
-fname="/gpfswork/rech/hvr/uhd88jk/overfit/Reproduction_resultat/data/graph-100k-cr_dist_tips_sorted_maxvalue_geomtensor.obj"
+
+n_param = len(df_param) # number of parameters to guess for each tree 
+n_trees =len(df_graph) # total number of trees of the dataset 
+
+# Format data 
+
+def convert_df_to_tensor(df_node, df_edge, params):
+
+    """
+    Convert the data frames containing node and edge information 
+    to a torch tensor that can be used to feed neural 
+    """
+    # Sort the nodes by their indices
+    df_node_sorted = df_node.sort_values(by=df_node.columns[0])
+    n_node, n_edge = df_node_sorted.shape[0], df_edge.shape[0]
+    l1, l2 = [], []
+
+    # Update edge indices based on the new node order
+    node_id_map = {old_id: new_id for new_id, old_id in enumerate(df_node_sorted.index)}
+    for i in range(n_edge):
+        edge = df_edge.iloc[i]
+        u, v = node_id_map[str(int(edge[0]))], node_id_map[str(int(edge[1]))]
+        l1.extend([u, v])
+        l2.extend([v, u])   
+    edge_index = torch.tensor([l1, l2], dtype=torch.long)
+    max_value = df_node_sorted['dist'].max().max()
+
+    # Subtract the maximum value from each element in the DataFrame
+    df_node_sorted['dist'] -= max_value
+
+    tolerance = 1e-9
+    df_node_sorted['dist'] = df_node_sorted['dist'].apply(lambda x: 0 if np.abs(x) < tolerance else x)
 
 
-file = open(fname, "rb")
-data_list = pickle.load(file)
+    x = torch.tensor(df_node_sorted.values, dtype=torch.float)
+    y = torch.tensor(params, dtype=torch.float)
+
+    data = Data(x=x, edge_index=edge_index, y=y)
+    return data
+
+fname="data/graph-100k-crbd_dist_tips_sorted_maxvalue_geomtensor.obj"
+
+
+
+
+if (not load_data):
+
+    data_list  = []
+    print("Formating data...")
+    for n in tqdm(range(n_trees)):
+        df_node, df_edge = df_graph[n][0], df_graph[n][1] # get the node and edge information 
+        with (robjects.default_converter + pandas2ri.converter).context(): 
+            df_edge= robjects.conversion.get_conversion().rpy2py(df_edge)
+            df_node= robjects.conversion.get_conversion().rpy2py(df_node)
+            columns_to_drop = ['mean.edge','time.asym', 'clade.asym', 'descendant', 'ancestor']
+            df_node = df_node.drop(columns=columns_to_drop)
+        selected_indices = [0, 1]  # 0 and 1 for crbd and 0 and 4 for bisse
+        params = [df_param[i][n] for i in selected_indices]
+        data = convert_df_to_tensor(df_node, df_edge, params)
+        data_list.append(data)
+    print("Formating data... Done.")
+
+    file = open(fname, "wb") # file handler 
+    pickle.dump(data_list, file) # save data_list
+    print("Formated data saved.")
+
+else:
+
+    file = open(fname, "rb")
+    data_list = pickle.load(file)
 print(data_list[0].x)
-
-# Creating train, valid and test set 
 
 # Choosing the tree indices for training, validation and test randomly 
 ind = np.arange(0, n_trees) 
@@ -67,8 +127,9 @@ np.random.shuffle(ind)
 train_ind = ind[0:n_train]  
 valid_ind = ind[n_train:n_train + n_valid]  
 test_ind  = ind[n_train + n_valid:] 
-print(test_ind)
-# Splitting the dataset between training, validation and test. 
+
+# Splitting the dataset between training, validation and test
+
 train_data = [data_list[i].to(device=device) for i in train_ind]
 valid_data = [data_list[i].to(device=device) for i in valid_ind]
 test_data  = [data_list[i].to(device=device) for i in test_ind]
@@ -94,8 +155,6 @@ class GCN(torch.nn.Module):
     def forward(self, data):
         x, edge_index, batch = data.x, data.edge_index, data.batch
 
-        batch_size = data.batch.max().item() + 1
-
         x = self.conv1(x, edge_index)
         x = F.relu(x)
         x = self.dropout(x)
@@ -115,8 +174,6 @@ class GCN(torch.nn.Module):
 
         return x
 
-import torch.nn as nn
-# loss_fn = nn.MSELoss()
 
 class WeightedLoss(nn.Module):
     def __init__(self, weight1, weight2):
@@ -145,7 +202,7 @@ def train(model, data):
     batch_size = data.batch.max().item() + 1 # number of trees in the batch 
     target = data.y.reshape([batch_size, n_out])
     loss = loss_fn(out, target)
-    loss.backward() # backward propagation 
+    loss.backward() 
     optimizer.step()
     return(loss)
 
@@ -158,27 +215,24 @@ def valid(model, data):
 
 
 # Setting up the training 
-n_hidden = 16  # number of neurons in the hidden layers
+n_hidden = 50  # number of neurons in the hidden layers
 p_dropout = 0.01  # dropout probability
-# n_epochs = 100  # maximum number of epochs for the training :100
+n_epochs = 100  # maximum number of epochs for the training :100
 patience = 5  # patience of the early stopping: normalement 3
 n_layer  = 3
-ker_size =5
 epoch = 1
 trigger = 0
-last_loss = 1000
+last_loss = 100
 
-n_in = data_list[0].num_node_features #6
-
+n_in = data_list[0].num_node_features 
 n_out = len(data_list[0].y)
-n_epochs = 100
 model = GCN(n_in, n_out, n_hidden, p_dropout).to(device=device)
+num_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+print(f"Number of parameters in the model : {num_params}")
 
 optimizer = torch.optim.Adam(model.parameters(), lr=0.0005, weight_decay=1e-5)
 train_losses = []
 valid_losses = []
-losses_every_100_batches = []
-model_name = "GNN_ism"
 
 # Training loop 
 
@@ -190,7 +244,7 @@ while epoch < n_epochs and trigger <= patience:
     train_loss = []
     for step, data in enumerate(train_dl):
         data = data.to(device=device)
-        loss = train(model, data) # train model and get loss
+        loss = train(model, data)
         loss = float(loss.to(device = "cpu"))
         train_loss.append(loss)
     
@@ -224,6 +278,7 @@ while epoch < n_epochs and trigger <= patience:
         last_loss = current_loss
 
     epoch += 1
+
 n_param = 2
 pred_list, true_list = [[] for n in range(n_param)], [[] for n in range(n_param)]
 model.eval()
@@ -236,19 +291,9 @@ for data in test_dl:
         true_list[n].append(true_params[n])
 
 pred_np = np.array(pred_list)
-print(pred_np)
 
-# Spécifier le chemin du fichier de sauvegarde
-file_path = "/gpfswork/rech/hvr/uhd88jk/overfit/Reproduction_resultat/results/CRBD_gcn/gcn_ismael_mae_hidden16.npy"
+file_path = "pred_crbd_GNN_avg.npy"
 
-# Enregistrer les prédictions dans le fichier
 np.save(file_path, pred_np)     
 
 
-pred_list = np.array(pred_list)
-true_list = np.array(true_list)
-
-error_lambda = (np.sum((pred_list[0]-true_list[0])**2))/np.sum(true_list[0]**2)
-print("lambda0",error_lambda)
-error_mu = (np.sum((pred_list[1]-true_list[1])**2))/np.sum(true_list[1]**2)
-print("mu",error_mu)
