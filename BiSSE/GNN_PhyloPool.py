@@ -18,6 +18,8 @@ import os
 os.environ['TORCH_USE_CUDA_DSA'] = '1'
 os.environ['CUDA_LAUNCH_BLOCKING'] = '1'
 import random
+import matplotlib.pyplot as plt
+import sys
 
 random.seed(113)
 np.random.seed(113)
@@ -311,11 +313,55 @@ last_loss = 1000
 
 n_in = data_list[0].num_node_features 
 n_out = len(data_list[0].y)
+
 model = GNN(n_in, n_out, n_hidden, ker_size, p_dropout).to(device=device)
 
 optimizer = torch.optim.Adam(model.parameters(), lr=0.001, weight_decay=1e-5)
 train_losses = []
 valid_losses = []
+
+
+# If checkpoint exists, load the model and don't train it
+check= True
+if check == True:
+    checkpoint = torch.load("checkpoints/epoch16_2.pth")
+    model.load_state_dict(checkpoint['model_state_dict'])
+    n_param = 2
+    pred_list, true_list = [[] for n in range(n_param)], [[] for n in range(n_param)]
+    model.eval()
+    for data in test_dl:
+        out = model(data.to(device=device))
+        pred_params = out.tolist()[0]
+        true_params = data.y.tolist()
+        for n in range(2):
+            pred_list[n].append(pred_params[n])
+            true_list[n].append(true_params[n])
+
+    fig, axs = plt.subplots(1, 2, figsize=(12, 6))
+
+    # Parcourir les deux paramètres
+    # Plot prédit vs vrai pour le paramètre i
+    axs[0].scatter(true_list[0], pred_list[0], color='blue', label="lambda0")
+    axs[0].plot(true_list[0], true_list[0], color='red', linestyle='--', label='Ideal line')
+    axs[0].set_xlabel('True Value')
+    axs[0].set_ylabel('Predicted Value')
+    axs[0].set_title('Parameter lambda0')
+    axs[0].legend()
+
+    axs[1].scatter(true_list[1], pred_list[1], color='blue', label="q01")
+    axs[1].plot(true_list[1], true_list[1], color='red', linestyle='--', label='Ideal line')
+    axs[1].set_xlabel('True Value')
+    axs[1].set_ylabel('Predicted Value')
+    axs[1].set_title('Parameter q01')
+    axs[1].legend()
+
+    plt.tight_layout()
+    plt.show()
+
+    sys.exit()
+
+
+
 # Training loop 
 
 while epoch < n_epochs and trigger <= patience:
