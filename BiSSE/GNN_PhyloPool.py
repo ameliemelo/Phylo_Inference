@@ -33,7 +33,7 @@ torch_geometric.seed_everything(113)
 torch.use_deterministic_algorithms(True)
 
 # Global parameters
-load_data =False# if data is already saved on the good format, else False
+load_data =True# if data is already saved on the good format, else False
 device = "cuda" if torch.cuda.is_available() else "cpu"  # Use GPU if available
 batch_size_max = 64 # max. number of trees per batch 
 n_train = 900 # size of training set 
@@ -177,8 +177,10 @@ def to_dense_batch(x, batch=None, fill_value=0, max_num_nodes=2000):
 class GNN(torch.nn.Module):
     def __init__(self, n_in, n_out, n_hidden, ker_size, p_dropout):
         super(GNN, self).__init__()
-        self.mp1 = GCNConv(n_in, n_hidden)
-        self.mp2 = GCNConv(n_hidden, n_hidden)
+        self.message_passing_layers = nn.ModuleList()
+        self.message_passing_layers.append(GCNConv(n_in, n_hidden))
+        for _ in range(1, 2):
+            self.message_passing_layers.append(GCNConv(n_hidden, n_hidden))
         self.n_parts=10
         self.conv1 = nn.Conv1d(in_channels=n_hidden, out_channels=2*n_hidden, kernel_size=ker_size, padding = "same")
         self.conv2 = nn.Conv1d(in_channels=2*n_hidden, out_channels=4*n_hidden, kernel_size=ker_size, padding="same")
@@ -193,13 +195,11 @@ class GNN(torch.nn.Module):
         batch_size = data.batch.max().item() + 1
 
         # Message Passing layers
-        x = self.mp1(x, edge_index)
-        x = F.relu(x)
-        x = self.dropout(x)
+        for mp_layer in self.message_passing_layers:
+            x = mp_layer(x, edge_index)
+            x = F.relu(x)
+            x = self.dropout(x)
 
-        x = self.mp2(x, edge_index)
-        x = F.relu(x)
-        x = self.dropout(x)
 
         # Padding
         x, num_nodes = to_dense_batch(x, batch)
@@ -324,8 +324,11 @@ valid_losses = []
 # If checkpoint exists, load the model and don't train it
 check= True
 if check == True:
-    checkpoint = torch.load("checkpoints/epoch16_2.pth")
+    checkpoint = torch.load("checkpoints/epoch16_2.pth", map_location=torch.device('cpu'))
     model.load_state_dict(checkpoint['model_state_dict'])
+
+    # checkpoint = torch.load("checkpoints/epoch16_2.pth")
+    # model.load_state_dict(checkpoint['model_state_dict'])
     n_param = 2
     pred_list, true_list = [[] for n in range(n_param)], [[] for n in range(n_param)]
     model.eval()
