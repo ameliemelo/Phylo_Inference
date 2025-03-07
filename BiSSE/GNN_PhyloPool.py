@@ -342,8 +342,6 @@ if check == True:
 
     fig, axs = plt.subplots(1, 2, figsize=(12, 6))
 
-    # Parcourir les deux paramètres
-    # Plot prédit vs vrai pour le paramètre i
     axs[0].scatter(true_list[0], pred_list[0], color='blue', label="lambda0")
     axs[0].plot(true_list[0], true_list[0], color='red', linestyle='--', label='Ideal line')
     axs[0].set_xlabel('True Value')

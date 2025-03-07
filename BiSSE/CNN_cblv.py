@@ -178,6 +178,50 @@ eps = 1e-08
 weight_decay = 0
 amsgrad = False
 
+# If checkpoint exists, load the model and don't train it
+check= True
+if check == True:
+    checkpoint = torch.load("checkpoints/epoch16_2.pth", map_location=torch.device('cpu'))
+    cnn.load_state_dict(checkpoint['model_state_dict'])
+
+    # checkpoint = torch.load("checkpoints/epoch16_2.pth")
+    # model.load_state_dict(checkpoint['model_state_dict'])
+    n_param = 2
+    pred_list, true_list = [[] for n in range(n_param)], [[] for n in range(n_param)]
+    cnn.eval()
+    for data in test_dl:
+        out = model(data.to(device=device))
+        pred_params = out.tolist()[0]
+        true_params = data.y.tolist()
+        for n in range(2):
+            pred_list[n].append(pred_params[n])
+            true_list[n].append(true_params[n])
+
+    fig, axs = plt.subplots(1, 2, figsize=(12, 6))
+
+    # Parcourir les deux paramètres
+    # Plot prédit vs vrai pour le paramètre i
+    axs[0].scatter(true_list[0], pred_list[0], color='blue', label="lambda0")
+    axs[0].plot(true_list[0], true_list[0], color='red', linestyle='--', label='Ideal line')
+    axs[0].set_xlabel('True Value')
+    axs[0].set_ylabel('Predicted Value')
+    axs[0].set_title('Parameter lambda0')
+    axs[0].legend()
+
+    axs[1].scatter(true_list[1], pred_list[1], color='blue', label="q01")
+    axs[1].plot(true_list[1], true_list[1], color='red', linestyle='--', label='Ideal line')
+    axs[1].set_xlabel('True Value')
+    axs[1].set_ylabel('Predicted Value')
+    axs[1].set_title('Parameter q01')
+    axs[1].legend()
+
+    plt.tight_layout()
+    plt.show()
+
+    sys.exit()
+
+
+
 opt = optim.Adam(cnn.parameters(), lr=learning_rate, betas=betas, eps=eps, weight_decay=weight_decay, amsgrad=amsgrad)
 
 loss_fn = nn.L1Loss()
