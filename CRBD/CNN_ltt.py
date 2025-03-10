@@ -173,22 +173,22 @@ if check == True:
 
     # Calcul des erreurs
     n = len(pred[0])
-    error_qo1 = np.sum(np.abs(np.array(pred[0]) - np.array(true_list[0])))
-    lambda_0 = np.sum(np.abs(np.array(pred[1]) - np.array(true_list[1])))
+    error_qo1 = np.sum(np.abs(np.array(pred[0]) - np.array(true_list[1])))
+    lambda_0 = np.sum(np.abs(np.array(pred[1]) - np.array(true_list[0])))
 
     print("Error q01: ", error_qo1 / n)
     print("Error lambda0: ", lambda_0 / n)
 
     fig, axs = plt.subplots(1, 2, figsize=(12, 6))
 
-    axs[0].scatter(true_list[0], pred[0], color='blue', label="lambda0")
+    axs[0].scatter(true_list[0], pred[1], color='blue', label="lambda0")
     axs[0].plot(true_list[0], true_list[0], color='red', linestyle='--', label='Ideal line')
     axs[0].set_xlabel('True Value')
     axs[0].set_ylabel('Predicted Value')
     axs[0].set_title('Parameter lambda0')
     axs[0].legend()
 
-    axs[1].scatter(true_list[1], pred[1], color='blue', label="q01")
+    axs[1].scatter(true_list[1], pred[0], color='blue', label="q01")
     axs[1].plot(true_list[1], true_list[1], color='red', linestyle='--', label='Ideal line')
     axs[1].set_xlabel('True Value')
     axs[1].set_ylabel('Predicted Value')

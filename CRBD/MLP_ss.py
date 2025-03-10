@@ -1,3 +1,4 @@
+import sys
 import numpy as np
 import torch
 import torch.nn as nn
@@ -141,6 +142,53 @@ def valid_batch(inputs, targets):
 
 train_losses = []
 valid_losses = []
+
+# If checkpoint exists, load the model and don't train it
+check= True
+if check == True:
+    checkpoint = torch.load("crbd/MLP_SS_checkpoint.pth", map_location=torch.device('cpu'))
+    dnn.load_state_dict(checkpoint['model_state_dict'])
+
+    dnn.eval()
+    pred = [[] for _ in range(n_out)]
+    true_list = [[] for _ in range(n_out)] 
+
+    for inputs, targets in tqdm(test_dl):
+        inputs, targets = inputs.to(device), targets.to(device)
+        output = dnn(inputs.to(device))
+        p = output.detach().cpu().numpy() 
+        for i in range(n_out):
+            pred[i].extend(p[:, i])
+            true_list[i].extend(targets[:, i].cpu().numpy()) 
+
+    # Calcul des erreurs
+    n = len(pred[0])
+    error_qo1 = np.sum(np.abs(np.array(pred[0]) - np.array(true_list[0])))
+    lambda_0 = np.sum(np.abs(np.array(pred[1]) - np.array(true_list[1])))
+
+    print("Error q01: ", error_qo1 / n)
+    print("Error lambda0: ", lambda_0 / n)
+
+    fig, axs = plt.subplots(1, 2, figsize=(12, 6))
+
+    axs[0].scatter(true_list[0], pred[0], color='blue', label="lambda0")
+    axs[0].plot(true_list[0], true_list[0], color='red', linestyle='--', label='Ideal line')
+    axs[0].set_xlabel('True Value')
+    axs[0].set_ylabel('Predicted Value')
+    axs[0].set_title('Parameter lambda0')
+    axs[0].legend()
+
+    axs[1].scatter(true_list[1], pred[1], color='blue', label="q01")
+    axs[1].plot(true_list[1], true_list[1], color='red', linestyle='--', label='Ideal line')
+    axs[1].set_xlabel('True Value')
+    axs[1].set_ylabel('Predicted Value')
+    axs[1].set_title('Parameter q01')
+    axs[1].legend()
+
+    plt.tight_layout()
+    plt.show()
+
+    sys.exit()
 
 
 while epoch < n_epochs and trigger < patience:
