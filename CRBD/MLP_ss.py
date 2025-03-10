@@ -25,8 +25,8 @@ n_test  = 50 # size of test set
 # Loading trees and their corresponding parameters
 
 pandas2ri.activate()
-fname_sumstat = "data/sumstat-100k-crbd.rds"
-fname_param = "data/true-parameters-100k-crbd.rds"
+fname_sumstat = "/home/amelie/These/Phylo_Inference/data/sumstat-100k-crbd.rds"
+fname_param = "/home/amelie/These/Phylo_Inference/data/true-parameters-100k-crbd.rds"
 
 readRDS = robjects.r['readRDS']
 df_sumstat = readRDS(fname_sumstat)

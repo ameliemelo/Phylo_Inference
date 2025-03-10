@@ -39,8 +39,8 @@ n_valid = 50 # size of validation set
 n_test  = 50 # size of test set 
 
 pandas2ri.activate()
-fname_graph = "data/graph-100k-crbd.rds"
-fname_param = "data/true-parameters-100k-crbd.rds"
+fname_graph = "/home/amelie/These/Phylo_Inference/data/graph-100k-crbd.rds"
+fname_param = "/home/amelie/These/Phylo_Inference/data/true-parameters-100k-crbd.rds"
 readRDS = robjects.r['readRDS']
 df_graph = readRDS(fname_graph)
 df_graph = pandas2ri.rpy2py(df_graph) # data.frame containing tree information
