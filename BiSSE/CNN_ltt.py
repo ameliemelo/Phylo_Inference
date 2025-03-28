@@ -9,6 +9,7 @@ import torch.nn as nn
 import warnings
 warnings.filterwarnings("ignore")
 import random
+import sys 
 import rpy2.robjects as robjects # load R object 
 from rpy2.robjects import pandas2ri # load R object 
 random.seed(113)
@@ -148,6 +149,54 @@ betas = (0.9, 0.999)
 eps = 1e-08
 weight_decay = 0
 amsgrad = False
+
+# If checkpoint exists, load the model and don't train it
+check= True
+if check == True:
+    checkpoint = torch.load("checkpoints/model/bisse/CNN_LTT_checkpoint.pth", map_location=torch.device('cpu'))
+    cnn.load_state_dict(checkpoint['model_state_dict'])
+
+    cnn.eval()
+    pred = [[] for _ in range(n_out)]
+    true_list = [[] for _ in range(n_out)] 
+
+    for inputs, targets in tqdm(test_dl):
+        inputs, targets = inputs.to(device), targets.to(device)
+        output = cnn(inputs.unsqueeze(1).to(device))
+        p = output.detach().cpu().numpy() 
+        for i in range(n_out):
+            pred[i].extend(p[:, i])
+            true_list[i].extend(targets[:, i].cpu().numpy()) 
+
+    # Calcul des erreurs
+    n = len(pred[0])
+    error_qo1 = np.sum(np.abs(np.array(pred[0]) - np.array(true_list[0])))
+    lambda_0 = np.sum(np.abs(np.array(pred[1]) - np.array(true_list[1])))
+
+    print("Error q01: ", error_qo1 / n)
+    print("Error lambda0: ", lambda_0 / n)
+
+    fig, axs = plt.subplots(1, 2, figsize=(12, 6))
+
+    axs[0].scatter(true_list[0], pred[0], color='blue', label="lambda0")
+    axs[0].plot(true_list[0], true_list[0], color='red', linestyle='--', label='Ideal line')
+    axs[0].set_xlabel('True Value')
+    axs[0].set_ylabel('Predicted Value')
+    axs[0].set_title('Parameter lambda0')
+    axs[0].legend()
+
+    axs[1].scatter(true_list[1], pred[1], color='blue', label="q01")
+    axs[1].plot(true_list[1], true_list[1], color='red', linestyle='--', label='Ideal line')
+    axs[1].set_xlabel('True Value')
+    axs[1].set_ylabel('Predicted Value')
+    axs[1].set_title('Parameter q01')
+    axs[1].legend()
+
+    plt.tight_layout()
+    plt.show()
+
+    sys.exit()
+
 
 opt = torch.optim.Adam(cnn.parameters(), lr=learning_rate, betas=betas, eps=eps, weight_decay=weight_decay, amsgrad=amsgrad)
 

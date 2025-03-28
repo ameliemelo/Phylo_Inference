@@ -17,6 +17,8 @@ import os
 os.environ['TORCH_USE_CUDA_DSA'] = '1'
 os.environ['CUDA_LAUNCH_BLOCKING'] = '1'
 import random
+import matplotlib.pyplot as plt
+import sys
 
 random.seed(113)
 np.random.seed(113)
@@ -230,6 +232,50 @@ last_loss = 1000
 n_in = data_list[0].num_node_features 
 n_out = len(data_list[0].y)
 model = GCN(n_in, n_out, n_hidden, p_dropout).to(device=device)
+
+# If checkpoint exists, load the model and don't train it
+check= True
+if check == True:
+    checkpoint = torch.load("checkpoints/model/bisse/GCN_ISM_2features_pooling10bin_lr0.001_schedulerFalse_hidden50_lossMAE_ker5_num_layers2_batch_size128_wd1e-05_dropout0.01_nbins10/epoch17_3.pth", map_location=torch.device('cpu'))
+    model.load_state_dict(checkpoint['model_state_dict'])
+
+    n_param = 2
+    pred_list, true_list = [[] for n in range(n_param)], [[] for n in range(n_param)]
+    model.eval()
+    for data in test_dl:
+        out = model(data.to(device=device))
+        pred_params = out.tolist()[0]
+        true_params = data.y.tolist()
+        for n in range(2):
+            pred_list[n].append(pred_params[n])
+            true_list[n].append(true_params[n])
+
+    n = len(pred_list[0])
+    error_qo1 = np.sum(np.abs(np.array(pred_list[0]) - np.array(true_list[0])))
+    lambda_0 = np.sum(np.abs(np.array(pred_list[1]) - np.array(true_list[1])))
+    print("Error q01: ", error_qo1/n)
+    print("Error lambda0: ", lambda_0/n)
+
+    fig, axs = plt.subplots(1, 2, figsize=(12, 6))
+
+    axs[0].scatter(true_list[0], pred_list[0], color='blue', label="lambda0")
+    axs[0].plot(true_list[0], true_list[0], color='red', linestyle='--', label='Ideal line')
+    axs[0].set_xlabel('True Value')
+    axs[0].set_ylabel('Predicted Value')
+    axs[0].set_title('Parameter lambda0')
+    axs[0].legend()
+
+    axs[1].scatter(true_list[1], pred_list[1], color='blue', label="q01")
+    axs[1].plot(true_list[1], true_list[1], color='red', linestyle='--', label='Ideal line')
+    axs[1].set_xlabel('True Value')
+    axs[1].set_ylabel('Predicted Value')
+    axs[1].set_title('Parameter q01')
+    axs[1].legend()
+
+    plt.tight_layout()
+    plt.show()
+
+    sys.exit()
 
 optimizer = torch.optim.Adam(model.parameters(), lr=0.0005, weight_decay=1e-5)
 train_losses = []

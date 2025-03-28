@@ -324,11 +324,9 @@ valid_losses = []
 # If checkpoint exists, load the model and don't train it
 check= True
 if check == True:
-    checkpoint = torch.load("checkpoints/epoch16_2.pth", map_location=torch.device('cpu'))
+    checkpoint = torch.load("checkpoints/model/bisse/epoch16_2.pth", map_location=torch.device('cpu'))
     model.load_state_dict(checkpoint['model_state_dict'])
 
-    # checkpoint = torch.load("checkpoints/epoch16_2.pth")
-    # model.load_state_dict(checkpoint['model_state_dict'])
     n_param = 2
     pred_list, true_list = [[] for n in range(n_param)], [[] for n in range(n_param)]
     model.eval()
@@ -339,6 +337,12 @@ if check == True:
         for n in range(2):
             pred_list[n].append(pred_params[n])
             true_list[n].append(true_params[n])
+
+    n = len(pred_list[0])
+    error_qo1 = np.sum(np.abs(np.array(pred_list[0]) - np.array(true_list[0])))
+    lambda_0 = np.sum(np.abs(np.array(pred_list[1]) - np.array(true_list[1])))
+    print("Error q01: ", error_qo1/n)
+    print("Error lambda0: ", lambda_0/n)
 
     fig, axs = plt.subplots(1, 2, figsize=(12, 6))
 
