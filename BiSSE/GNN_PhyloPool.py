@@ -33,7 +33,7 @@ torch_geometric.seed_everything(113)
 torch.use_deterministic_algorithms(True)
 
 # Global parameters
-load_data =True# if data is already saved on the good format, else False
+load_data =False# if data is already saved on the good format, else False
 device = "cuda" if torch.cuda.is_available() else "cpu"  # Use GPU if available
 batch_size_max = 64 # max. number of trees per batch 
 n_train = 900 # size of training set 
@@ -322,7 +322,7 @@ valid_losses = []
 
 
 # If checkpoint exists, load the model and don't train it
-check= True
+check= False
 if check == True:
     checkpoint = torch.load("checkpoints/model/bisse/epoch16_2.pth", map_location=torch.device('cpu'))
     model.load_state_dict(checkpoint['model_state_dict'])

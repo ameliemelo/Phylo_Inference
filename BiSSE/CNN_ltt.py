@@ -151,7 +151,7 @@ weight_decay = 0
 amsgrad = False
 
 # If checkpoint exists, load the model and don't train it
-check= True
+check= False
 if check == True:
     checkpoint = torch.load("checkpoints/model/bisse/CNN_LTT_checkpoint.pth", map_location=torch.device('cpu'))
     cnn.load_state_dict(checkpoint['model_state_dict'])

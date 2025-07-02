@@ -1,0 +1,9 @@
+matplotlib==3.10.3
+numpy==2.3.1
+pandas==2.3.0
+rpy2==3.5.17
+scikit_learn==1.7.0
+torch==2.5.1+cu124
+torch_geometric==2.6.1
+torch_scatter==2.1.2+pt25cu124
+tqdm==4.67.1

@@ -53,7 +53,7 @@ get_node_df <- function(tree){
     #nodes.attr$in.edge    <- c(nodes.attr$in.edge, in.edge)
 
     # Add the following line if the BiSSE model is used  
-    # nodes.attr$state <- c(nodes.attr$state, state)
+    nodes.attr$state <- c(nodes.attr$state, state)
 
   }
   df <- as.data.frame(nodes.attr)
