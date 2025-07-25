@@ -36,9 +36,9 @@ torch.use_deterministic_algorithms(True)
 load_data =False # if data is already saved on the good format, else False
 device = "cuda" if torch.cuda.is_available() else "cpu"  # Use GPU if available
 batch_size_max = 64 # max. number of trees per batch 
-n_train = 900 # size of training set 
-n_valid = 50 # size of validation set 
-n_test  = 50
+n_train = 9000 # size of training set 
+n_valid = 5000 # size of validation set 
+n_test  = 5000
 
 pandas2ri.activate()
 fname_graph = "/home/amelie/These/Phylo_Inference/data/graph-100k-crbd.rds"
