@@ -358,7 +358,7 @@ valid_losses = []
 # If checkpoint exists, load the model and don't train it
 check= False
 if check == True:
-    checkpoint = torch.load("checkpoints/model/bisse/epoch16_2.pth", map_location=torch.device('cpu'))
+    checkpoint = torch.load("checkpoints/model/bisse/GNN_PhyloPool_checkpoint.pth", map_location=torch.device('cpu'))
     model.load_state_dict(checkpoint['model_state_dict'])
 
     n_param = 2
