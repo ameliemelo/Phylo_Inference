@@ -36,9 +36,9 @@ torch.use_deterministic_algorithms(True)
 load_data =True# if data is already saved on the good format, else False
 device = "cuda" if torch.cuda.is_available() else "cpu"  # Use GPU if available
 batch_size_max = 64 
-n_train = 900 # size of training set 
-n_valid = 50 # size of validation set 
-n_test  = 50 # size of test set 
+n_train = 90000 # size of training set 
+n_valid = 5000 # size of validation set 
+n_test  = 5000 # size of test set 
 
 pandas2ri.activate()
 fname_graph = "/home/amelie/These/Phylo_Inference/data/graph-100k-crbd.rds"
@@ -89,8 +89,11 @@ def convert_df_to_tensor(df_node, df_edge, params):
 
     data = Data(x=x, edge_index=edge_index, y=y)
     return data
+    
+# Use this file if you are working with the data from my simulations:
+fname = "/home/amelie/These/Phylo_Inference/data/graph-100k-crbd_dist_tips_sorted_maxvalue_geomtensor.obj"
 
-fname="/home/amelie/These/Phylo_Inference/data/graph-100k-crbd_dist_tips_sorted_maxvalue_geomtensor.obj"
+# If you generated your own simulations using this GitHub repository, set load_data = False
 
 
 
