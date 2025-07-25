@@ -19,7 +19,16 @@ print("Chargement des données")
 
 base_path = "/home/amelie/These/Phylo_Inference/data/" 
 file_names = [
-    "sumstat-100k-bisse.rds"
+    "sumstat-100k-bisse1.rds",
+    "sumstat-100k-bisse2.rds",
+    "sumstat-100k-bisse3.rds",
+    "sumstat-100k-bisse4.rds",
+    "sumstat-100k-bisse5.rds",
+    "sumstat-100k-bisse6.rds",
+    "sumstat-100k-bisse7.rds",
+    "sumstat-100k-bisse8.rds",
+    "sumstat-100k-bisse9.rds",
+    "sumstat-100k-bisse10.rds"
 ]
 file_paths = [base_path + file_name for file_name in file_names]
 
@@ -56,7 +65,16 @@ test_ind  = ind[n_train + n_valid:]
 
 param_base_path = "/home/amelie/These/Phylo_Inference/data/"
 param_file_names = [
-    "true-parameters-100k-bisse.rds"
+    "true-parameters-100k-bisse1.rds",
+    "true-parameters-100k-bisse2.rds",
+    "true-parameters-100k-bisse3.rds",
+    "true-parameters-100k-bisse4.rds",
+    "true-parameters-100k-bisse5.rds",
+    "true-parameters-100k-bisse6.rds",
+    "true-parameters-100k-bisse7.rds",
+    "true-parameters-100k-bisse8.rds",
+    "true-parameters-100k-bisse9.rds",
+    "true-parameters-100k-bisse10.rds"
 ]
 
 param_file_paths = [param_base_path + file_name for file_name in param_file_names]
