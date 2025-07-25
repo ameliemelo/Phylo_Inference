@@ -17,9 +17,9 @@ np.random.seed(113)
 # Global parameters
 device = "cpu" # which GPU to use 
 batch_size_max = 64 # max. number of trees per batch 
-n_train = 900 # size of training set 
-n_valid = 50 # size of validation set 
-n_test  = 50 # size of test set 
+n_train = 90000 # size of training set 
+n_valid = 5000 # size of validation set 
+n_test  = 5000 # size of test set 
 
 
 
