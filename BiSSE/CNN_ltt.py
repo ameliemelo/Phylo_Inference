@@ -4,14 +4,13 @@ import torch.nn.functional as F
 import pandas as pd
 from tqdm import tqdm # print progress bar 
 import matplotlib.pyplot as plt # plot
+import pickle # save object 
 import numpy as np
 import torch.nn as nn
 import warnings
 warnings.filterwarnings("ignore")
 import random
 import sys 
-import rpy2.robjects as robjects # load R object 
-from rpy2.robjects import pandas2ri # load R object 
 random.seed(113)
 np.random.seed(113)
 torch.manual_seed(113)
@@ -26,36 +25,50 @@ torch.use_deterministic_algorithms(True)
 
 device = "cpu" # which GPU to use 
 batch_size_max = 64 # max. number of trees per batch 
-n_train = 900# size of training set 
-n_valid = 50# size of validation set 
-n_test  = 50
+n_train = 900000# size of training set 
+n_valid = 50000# size of validation set 
+n_test  = 50000
+# We use the data directly from the graph structure since the LTT (Lineage Through Time) information  is stored in the first column of the node features.
+base_path = "/home/amelie/These/Phylo_Inference/data/"
+file_names = [
+    "graph-100k-bisse1.pth",
+    "graph-100k-bisse2.pth",
+    "graph-100k-bisse3.pth",
+    "graph-100k-bisse4.pth",
+    "graph-100k-bisse5.pth",
+    "graph-100k-bisse6.pth",
+    "graph-100k-bisse7.pth",
+    "graph-100k-bisse8.pth",
+    "graph-100k-bisse9.pth",
+    "graph-100k-bisse10.pth"
+]
 
-# Loading trees and their corresponding parameters
-pandas2ri.activate()
+file_paths = [base_path + file_name for file_name in file_names]
 
-fname_ltt = "/home/amelie/These/Phylo_Inference/data/ltt-100k-bisse.rds" #crbd ou bisse
-fname_param = "/home/amelie/These/Phylo_Inference/data/true-parameters-100k-bisse.rds"
+device = "cuda" if torch.cuda.is_available() else "cpu"
 
-readRDS = robjects.r['readRDS']
+data_list = []
+for file_path in file_paths:
+    loaded_data = torch.load(file_path)
+    for data in loaded_data:
+        # Keep only the first column of features (LTT info)
+        data.x = data.x[:, [0]]
+        # Ensure each tree has exactly 1000 time points
+        if data.x.shape[0] < 1000:
+            padding = torch.zeros(1000 - data.x.shape[0], 1)
+            data.x = torch.cat((data.x, padding), dim=0)
+        else:
+            data.x = data.x[:1000, [0]] # Truncate if too long
+        if data.x.shape[0] != 1:
+            data.x = data.x.transpose(0, 1)
+        # Ajouter le tensor modifié à la liste
+        data_list.append(torch.tensor(data.x))
 
-df_ltt = readRDS(fname_ltt)
-df_ltt = pandas2ri.rpy2py(df_ltt) # data.frame containing tree information
-df_param = readRDS(fname_param)
-df_param = pandas2ri.rpy2py(df_param) # data.frame containing target parameters
-true = pandas2ri.rpy2py(df_param) 
-with (robjects.default_converter + pandas2ri.converter).context():  
-    true= robjects.conversion.get_conversion().rpy2py(true)
+# Concatenate all tensors into one
+final_data_tensor= torch.cat(data_list, dim=0)  # Résultat : tensor de taille (100000, 1000)
 
-n_param = len(df_param) # number of parameters to guess for each tree 
-
-df_ltt.fillna(0, inplace=True) 
-df_ltt = np.transpose(df_ltt) 
-df_ltt = pd.DataFrame(df_ltt)
-n_trees = df_ltt.shape[0]
-
-print("chargement des données")
-
-
+print("Taille du tensor :", final_data_tensor.shape)  
+n_trees = len(final_data_tensor)
 
 # Choosing the tree indices for training, validation and test randomly 
 ind = np.arange(0, n_trees) 
@@ -66,29 +79,61 @@ valid_ind = ind[n_train:n_train + n_valid]
 test_ind  = ind[n_train + n_valid:] 
 
 np.save("test_indices.npy", test_ind)
-# Choosing the tree indices for training, validation and test randomly 
 
-train_inputs = torch.tensor(df_ltt.iloc[train_ind].values).float().to(device)
-valid_inputs = torch.tensor(df_ltt.iloc[valid_ind].values).float().to(device)
-test_inputs= torch.tensor(df_ltt.iloc[test_ind].values).float().to(device)
+train_inputs = final_data_tensor[train_ind]
+valid_inputs = final_data_tensor[valid_ind]
+test_inputs = final_data_tensor[test_ind]
+
+# You can easily transform the .rds file into .csv file for the parameter
+# Now for the true parameters
+param_base_path = "/home/amelie/These/Phylo_Inference/data/"
+param_file_names = [
+    "true-parameters-100k-bisse1.csv",
+    "true-parameters-100k-bisse2.csv",
+    "true-parameters-100k-bisse3.csv",
+    "true-parameters-100k-bisse4.csv",
+    "true-parameters-100k-bisse5.csv",
+    "true-parameters-100k-bisse6.csv",
+    "true-parameters-100k-bisse7.csv",
+    "true-parameters-100k-bisse8.csv",
+    "true-parameters-100k-bisse9.csv",
+    "true-parameters-100k-bisse10.csv"
+]
+param_file_paths = [param_base_path + file_name for file_name in param_file_names]
+
+# Reading and concatenating parameter files
+all_true_params = []
+for file_path in param_file_paths:
+    df_param = pd.read_csv(file_path)  # Read CSV for parameters
+    df_param = torch.tensor(df_param.values).float()
+    all_true_params.append(df_param)
 
 
-train_targets = torch.tensor([[true['lambda0'][i], true['q01'][i]] for i in train_ind]).float().to(device)
-valid_targets = torch.tensor([[true['lambda0'][i], true['q01'][i]] for i in valid_ind]).float().to(device)
-test_targets = torch.tensor([[true['lambda0'][i], true['q01'][i]] for i in test_ind]).float().to(device)
+# Concatenate parameter dataframes into one
+true = torch.concat(all_true_params, dim=0)
+print(f"Shape of concatenated parameter tensor: {true.shape}")
 
+# Select columns for target parameters (adjust indices as needed)
+lambda0_col = 0  
+q01_col = 4
 
+train_targets = true[train_ind][:, [lambda0_col, q01_col]]
+valid_targets = true[valid_ind][:, [lambda0_col, q01_col]]
+test_targets = true[test_ind][:, [lambda0_col, q01_col]]
+
+# Create PyTorch datasets
 train_dataset = TensorDataset(train_inputs, train_targets)
 valid_dataset = TensorDataset(valid_inputs, valid_targets)
 test_dataset = TensorDataset(test_inputs, test_targets)
 
+# Create data loaders
 train_dl = DataLoader(train_dataset, batch_size=batch_size_max, shuffle=True)
 valid_dl = DataLoader(valid_dataset, batch_size=batch_size_max, shuffle=False)
 test_dl = DataLoader(test_dataset, batch_size=1, shuffle=False)
 
 # Build the neural network
 
-n_input = df_ltt.shape[1]
+n_input = final_data_tensor.shape[1]
 n_out = 2
 n_hidden = 8  # number of neurons in the hidden layers
 p_dropout = 0.01  # dropout probability
