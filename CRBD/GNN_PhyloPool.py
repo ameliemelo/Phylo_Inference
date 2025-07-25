@@ -33,10 +33,10 @@ torch_geometric.seed_everything(113)
 torch.use_deterministic_algorithms(True)
 
 # Global parameters
-load_data =False # if data is already saved on the good format, else False
+load_data =True# if data is already saved on the good format, else False
 device = "cuda" if torch.cuda.is_available() else "cpu"  # Use GPU if available
 batch_size_max = 64 # max. number of trees per batch 
-n_train = 9000 # size of training set 
+n_train = 90000 # size of training set 
 n_valid = 5000 # size of validation set 
 n_test  = 5000
 
@@ -89,9 +89,10 @@ def convert_df_to_tensor(df_node, df_edge, params):
     data = Data(x=x, edge_index=edge_index, y=y)
     return data
 
-
+# Use this file if you are working with the data from my simulations:
 fname="/home/amelie/These/Phylo_Inference/data/graph-100k-crbd_dist_tips_sorted_maxvalue_geomtensor.obj"
 
+# If you generated your own simulations using this GitHub repository, set load_data = False
 
 if (not load_data):
 
