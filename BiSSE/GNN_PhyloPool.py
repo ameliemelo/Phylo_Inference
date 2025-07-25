@@ -32,116 +32,150 @@ torch_geometric.seed_everything(113)
 
 torch.use_deterministic_algorithms(True)
 
-# Global parameters
-load_data =False# if data is already saved on the good format, else False
-device = "cuda" if torch.cuda.is_available() else "cpu"  # Use GPU if available
+# Use this part if you are working with your own simulations generated using the GitHub repository
+# # Global parameters
+# load_data =False# if data is already saved on the good format, else False
+# device = "cuda" if torch.cuda.is_available() else "cpu"  # Use GPU if available
 batch_size_max = 64 # max. number of trees per batch 
-n_train = 900 # size of training set 
-n_valid = 50 # size of validation set 
-n_test  = 50
+# n_train = 900000 # size of training set 
+# n_valid = 50000 # size of validation set 
+# n_test  = 50000
 
-pandas2ri.activate()
-fname_graph = "/home/amelie/These/Phylo_Inference/data/graph-100k-bisse.rds"
-fname_param = "/home/amelie/These/Phylo_Inference/data/true-parameters-100k-bisse.rds"
-readRDS = robjects.r['readRDS']
-df_graph = readRDS(fname_graph)
-df_graph = pandas2ri.rpy2py(df_graph) # data.frame containing tree information
+# pandas2ri.activate()
+# fname_graph = "/home/amelie/These/Phylo_Inference/data/graph-100k-bisse.rds"
+# fname_param = "/home/amelie/These/Phylo_Inference/data/true-parameters-100k-bisse.rds"
+# readRDS = robjects.r['readRDS']
+# df_graph = readRDS(fname_graph)
+# df_graph = pandas2ri.rpy2py(df_graph) # data.frame containing tree information
 
-df_param = readRDS(fname_param)
-df_param = pandas2ri.rpy2py(df_param) # data.frame containing target parameters
+# df_param = readRDS(fname_param)
+# df_param = pandas2ri.rpy2py(df_param) # data.frame containing target parameters
 
-n_param = len(df_param) # number of parameters to guess for each tree 
-n_trees =len(df_graph) # total number of trees of the dataset 
-
-
-# Format data 
-
-def convert_df_to_tensor(df_node, df_edge, params):
-
-    """
-    Convert the data frames containing node and edge information 
-    to a torch tensor that can be used to feed neural 
-    """
-    # Sort the nodes by their indices
-    df_node_sorted = df_node.sort_values(by=df_node.columns[0])
-    n_node, n_edge = df_node_sorted.shape[0], df_edge.shape[0]
-    l1, l2 = [], []
-
-    # Update edge indices based on the new node order
-    node_id_map = {old_id: new_id for new_id, old_id in enumerate(df_node_sorted.index)}
-    for i in range(n_edge):
-        edge = df_edge.iloc[i]
-        u, v = node_id_map[str(int(edge[0]))], node_id_map[str(int(edge[1]))]
-        l1.extend([u, v])
-        l2.extend([v, u])   
-    edge_index = torch.tensor([l1, l2], dtype=torch.long)
-    max_value = df_node_sorted['dist'].max().max()
-
-    # Subtract the maximum value from each element in the DataFrame
-    df_node_sorted['dist'] -= max_value
-
-    tolerance = 1e-9
-    df_node_sorted['dist'] = df_node_sorted['dist'].apply(lambda x: 0 if np.abs(x) < tolerance else x)
-
-    # Replace values in 'state' column: -1 -> 0 and 0 -> -1
-    df_node_sorted['state'] = df_node_sorted['state'].replace({-1: 0, 0: -1})
-
-    x = torch.tensor(df_node_sorted.values, dtype=torch.float)
-    y = torch.tensor(params, dtype=torch.float)
-
-    data = Data(x=x, edge_index=edge_index, y=y)
-    return data
+# n_param = len(df_param) # number of parameters to guess for each tree 
+# n_trees =len(df_graph) # total number of trees of the dataset 
 
 
-fname="/home/amelie/These/Phylo_Inference/data/graph-100k-bisse_dist_tips_sorted_maxvalue_geomtensor.obj"
+# # Format data 
+
+# def convert_df_to_tensor(df_node, df_edge, params):
+
+#     """
+#     Convert the data frames containing node and edge information 
+#     to a torch tensor that can be used to feed neural 
+#     """
+#     # Sort the nodes by their indices
+#     df_node_sorted = df_node.sort_values(by=df_node.columns[0])
+#     n_node, n_edge = df_node_sorted.shape[0], df_edge.shape[0]
+#     l1, l2 = [], []
+
+#     # Update edge indices based on the new node order
+#     node_id_map = {old_id: new_id for new_id, old_id in enumerate(df_node_sorted.index)}
+#     for i in range(n_edge):
+#         edge = df_edge.iloc[i]
+#         u, v = node_id_map[str(int(edge[0]))], node_id_map[str(int(edge[1]))]
+#         l1.extend([u, v])
+#         l2.extend([v, u])   
+#     edge_index = torch.tensor([l1, l2], dtype=torch.long)
+#     max_value = df_node_sorted['dist'].max().max()
+
+#     # Subtract the maximum value from each element in the DataFrame
+#     df_node_sorted['dist'] -= max_value
+
+#     tolerance = 1e-9
+#     df_node_sorted['dist'] = df_node_sorted['dist'].apply(lambda x: 0 if np.abs(x) < tolerance else x)
+
+#     # Replace values in 'state' column: -1 -> 0 and 0 -> -1
+#     df_node_sorted['state'] = df_node_sorted['state'].replace({-1: 0, 0: -1})
+
+#     x = torch.tensor(df_node_sorted.values, dtype=torch.float)
+#     y = torch.tensor(params, dtype=torch.float)
+
+#     data = Data(x=x, edge_index=edge_index, y=y)
+#     return data
 
 
-if (not load_data):
-
-    data_list  = []
-    print("Formating data...")
-    for n in tqdm(range(n_trees)):
-        df_node, df_edge = df_graph[n][0], df_graph[n][1] # get the node and edge information 
-        with (robjects.default_converter + pandas2ri.converter).context(): 
-            df_edge= robjects.conversion.get_conversion().rpy2py(df_edge)
-            df_node= robjects.conversion.get_conversion().rpy2py(df_node)
-            columns_to_drop = ['mean.edge','time.asym', 'clade.asym', 'descendant', 'ancestor']
-            df_node = df_node.drop(columns=columns_to_drop)
-        selected_indices = [0, 4]  # drop columns that are not needed
-        params = [df_param[i][n] for i in selected_indices]
-        data = convert_df_to_tensor(df_node, df_edge, params)
-        data_list.append(data)
-    print("Formating data... Done.")
-
-    file = open(fname, "wb") # file handler 
-    pickle.dump(data_list, file) # save data_list
-    print("Formated data saved.")
-
-else:
-
-    file = open(fname, "rb")
-    data_list = pickle.load(file)
+# fname="/home/amelie/These/Phylo_Inference/data/graph-100k-bisse_dist_tips_sorted_maxvalue_geomtensor.obj"
 
 
-# Choosing the tree indices for training, validation and test randomly 
-ind = np.arange(0, n_trees) 
-np.random.shuffle(ind) 
+# if (not load_data):
 
-train_ind = ind[0:n_train]  
-valid_ind = ind[n_train:n_train + n_valid]  
-test_ind  = ind[n_train + n_valid:] 
+#     data_list  = []
+#     print("Formating data...")
+#     for n in tqdm(range(n_trees)):
+#         df_node, df_edge = df_graph[n][0], df_graph[n][1] # get the node and edge information 
+#         with (robjects.default_converter + pandas2ri.converter).context(): 
+#             df_edge= robjects.conversion.get_conversion().rpy2py(df_edge)
+#             df_node= robjects.conversion.get_conversion().rpy2py(df_node)
+#             columns_to_drop = ['mean.edge','time.asym', 'clade.asym', 'descendant', 'ancestor']
+#             df_node = df_node.drop(columns=columns_to_drop)
+#         selected_indices = [0, 4]  # drop columns that are not needed
+#         params = [df_param[i][n] for i in selected_indices]
+#         data = convert_df_to_tensor(df_node, df_edge, params)
+#         data_list.append(data)
+#     print("Formating data... Done.")
 
+#     file = open(fname, "wb") # file handler 
+#     pickle.dump(data_list, file) # save data_list
+#     print("Formated data saved.")
+
+# else:
+
+#     file = open(fname, "rb")
+#     data_list = pickle.load(file)
+
+
+# Now if you use simulations from my own dataset
+file_names = [
+    "graph-100k-bisse1.pth",
+    "graph-100k-bisse2.pth",
+    "graph-100k-bisse3.pth",
+    "graph-100k-bisse4.pth",
+    "graph-100k-bisse5.pth",
+    "graph-100k-bisse6.pth",
+    "graph-100k-bisse7.pth",
+    "graph-100k-bisse8.pth",
+    "graph-100k-bisse9.pth",
+    "graph-100k-bisse10.pth"
+]
+
+file_paths = [base_path + file_name for file_name in file_names]
+device = "cuda" if torch.cuda.is_available() else "cpu" 
+
+data_list = []
+for file_path in file_paths:
+    logging.info(f"Chargement du fichier: {file_path}")
+    try:
+        loaded_data = torch.load(file_path)
+        logging.info(f"Nombre d'éléments chargés: {len(loaded_data)}")
+        for data in loaded_data:
+            data.x = data.x[:, [0, -1]]  # Conserve first and last column (distance and state)
+            data_list.append(data.to(device=device))
+            
+print("exemple de une target",data_list[0].y)
+print("exemple de une data", data_list[0].x)
+
+n_total = len(data_list)
+n_train = int(0.9 * n_total)  # 90% for training
+n_valid = int(0.05 * n_total) # 5% for validation
+n_test  = n_total - n_train - n_valid # for testing
+
+ind = np.arange(n_total)
+np.random.shuffle(ind)
+
+train_ind = ind[:n_train]
+valid_ind = ind[n_train:n_train + n_valid]
+test_ind  = ind[n_train + n_valid:]
 
 # Splitting the dataset between training, validation and test. 
 train_data = [data_list[i].to(device=device) for i in train_ind]
 valid_data = [data_list[i].to(device=device) for i in valid_ind]
 test_data  = [data_list[i].to(device=device) for i in test_ind]
 
-# Converting the list to DataLoader
-train_dl = DataLoader(train_data, batch_size = batch_size_max, shuffle = True)
-valid_dl = DataLoader(valid_data, batch_size = batch_size_max, shuffle = False)
-test_dl  = DataLoader(test_data , batch_size = 1)
 
+# Converting the list to DataLoader
+train_dl = DataLoader(train_data, batch_size=batch_size_max, shuffle=True)
+valid_dl = DataLoader(valid_data, batch_size=batch_size_max, shuffle=True)
+test_dl  = DataLoader(test_data, batch_size=1)
 
 
 def get_valid_node_indices(initial_num_nodes):
