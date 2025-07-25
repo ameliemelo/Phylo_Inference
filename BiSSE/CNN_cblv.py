@@ -31,7 +31,16 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 base_path = "/home/amelie/These/Phylo_Inference/data/"  
 file_names = [
-    "cblv-100k-bisse.rds"
+    "cblv-100k-bisse1.rds",
+    "cblv-100k-bisse2.rds",
+    "cblv-100k-bisse3.rds",
+    "cblv-100k-bisse4.rds",
+    "cblv-100k-bisse5.rds",
+    "cblv-100k-bisse6.rds",
+    "cblv-100k-bisse7.rds",
+    "cblv-100k-bisse8.rds",
+    "cblv-100k-bisse9.rds",
+    "cblv-100k-bisse10.rds"
 ]
 file_paths = [base_path + file_name for file_name in file_names]
 
@@ -51,7 +60,16 @@ print(f"Taille totale du dataset concaténé : {df_cblv.shape}")
 # Now for the true parameters
 param_base_path =  "/home/amelie/These/Phylo_Inference/data/" 
 param_file_names = [
-    "true-parameters-100k-bisse.rds"
+    "true-parameters-100k-bisse1.rds",
+    "true-parameters-100k-bisse2.rds",
+    "true-parameters-100k-bisse3.rds",
+    "true-parameters-100k-bisse4.rds",
+    "true-parameters-100k-bisse5.rds",
+    "true-parameters-100k-bisse6.rds",
+    "true-parameters-100k-bisse7.rds",
+    "true-parameters-100k-bisse8.rds",
+    "true-parameters-100k-bisse9.rds",
+    "true-parameters-100k-bisse10.rds"
 ]
 param_file_paths = [param_base_path + file_name for file_name in param_file_names]
 
