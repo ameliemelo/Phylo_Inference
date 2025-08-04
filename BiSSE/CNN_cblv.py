@@ -31,67 +31,58 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 base_path = "/lustre/fswork/projects/rech/hvr/uhd88jk/data/"  
 file_names = [
-    "cblv-100k-bisse1.rds",
-    "cblv-100k-bisse2.rds",
-    "cblv-100k-bisse3.rds",
-    "cblv-100k-bisse4.rds",
-    "cblv-100k-bisse5.rds",
-    "cblv-100k-bisse6.rds",
-    "cblv-100k-bisse7.rds",
-    "cblv-100k-bisse8.rds",
-    "cblv-100k-bisse9.rds",
-    "cblv-100k-bisse10.rds"
+    "cblv-100k-bisse1.csv",
+    "cblv-100k-bisse2.csv",
+    "cblv-100k-bisse3.csv",
+    "cblv-100k-bisse4.csv",
+    "cblv-100k-bisse5.csv",
+    "cblv-100k-bisse6.csv",
+    "cblv-100k-bisse7.csv",
+    "cblv-100k-bisse8.csv",
+    "cblv-100k-bisse9.csv",
+    "cblv-100k-bisse10.csv"
 ]
 file_paths = [base_path + file_name for file_name in file_names]
 
 readRDS = robjects.r['readRDS']
-all_dfs = []
-
-# Concatenate all data files
+tensor_list = []
 for file_path in file_paths:
-    df_cblv = readRDS(file_path)
-    df_cblv = np.transpose(df_cblv)  
-    df_cblv = pd.DataFrame(df_cblv)
-    all_dfs.append(df_cblv)
+    df_cblv = pd.read_csv(file_path)
+    data_tensor = torch.tensor(df_cblv.values).float()
+    tensor_list.append(data_tensor)
 
-df_cblv = pd.concat(all_dfs, axis=0)
+df_cblv = pd.concat(tensor_list, axis=0)
 print(f"Taille totale du dataset concaténé : {df_cblv.shape}")
 
 # Now for the true parameters
 param_base_path =  "/lustre/fswork/projects/rech/hvr/uhd88jk/data/"
 param_file_names = [
-    "true-parameters-100k-bisse1.rds",
-    "true-parameters-100k-bisse2.rds",
-    "true-parameters-100k-bisse3.rds",
-    "true-parameters-100k-bisse4.rds",
-    "true-parameters-100k-bisse5.rds",
-    "true-parameters-100k-bisse6.rds",
-    "true-parameters-100k-bisse7.rds",
-    "true-parameters-100k-bisse8.rds",
-    "true-parameters-100k-bisse9.rds",
-    "true-parameters-100k-bisse10.rds"
+    "true-parameters-100k-bisse1.csv",
+    "true-parameters-100k-bisse2.csv",
+    "true-parameters-100k-bisse3.csv",
+    "true-parameters-100k-bisse4.csv",
+    "true-parameters-100k-bisse5.csv",
+    "true-parameters-100k-bisse6.csv",
+    "true-parameters-100k-bisse7.csv",
+    "true-parameters-100k-bisse8.csv",
+    "true-parameters-100k-bisse9.csv",
+    "true-parameters-100k-bisse10.csv"
 ]
 param_file_paths = [param_base_path + file_name for file_name in param_file_names]
 
 # Reading and concatenating parameter files
-readRDS = robjects.r['readRDS']
 all_true_params = []
-
-
-print("Chargement des fichiers de paramètres...")
-for i, file_path in enumerate(param_file_paths):
-    with (robjects.default_converter + pandas2ri.converter).context():
-        df_param = readRDS(file_path)  
-        df_param = robjects.conversion.get_conversion().rpy2py(df_param) 
-
-    if not isinstance(df_param, pd.DataFrame):
-        df_param = pd.DataFrame(df_param)
-    
+for file_path in param_file_paths:
+    df_param = pd.read_csv(file_path)  # Read CSV for parameters
+    df_param = torch.tensor(df_param.values).float()
     all_true_params.append(df_param)
 
 
-true = pd.concat(all_true_params, axis=0, ignore_index=True)
+# Concatenate parameter dataframes into one
+true = torch.concat(all_true_params, dim=0)
 print(f"Taille totale du DataFrame de paramètres concaténés : {true.shape}")
+
+
 
 # Randomly shuffle indices for the train, valid, test splits
 n_total = df_cblv.shape[0]
@@ -108,27 +99,27 @@ valid_ind = ind[n_train:n_train + n_valid]
 test_ind = ind[n_train + n_valid:]
 
 
-train_inputs = torch.tensor(df_cblv.iloc[train_ind].values).float().to(device)
-valid_inputs = torch.tensor(df_cblv.iloc[valid_ind].values).float().to(device)
-test_inputs= torch.tensor(df_cblv.iloc[test_ind].values).float().to(device)
+train_inputs = df_cblv[train_ind]
+valid_inputs = df_cblv[valid_ind]
+test_inputs = df_cblv[test_ind]
 
 
-train_targets = torch.tensor([[true['lambda0'][i], true['q01'][i]] for i in train_ind]).float().to(device)
-valid_targets = torch.tensor([[true['lambda0'][i], true['q01'][i]] for i in valid_ind]).float().to(device)
-test_targets = torch.tensor([[true['lambda0'][i], true['q01'][i]] for i in test_ind]).float().to(device)
+lambda0_col = 0  # Indice de la colonne 'lambda0' dans le tensor (ajustez si nécessaire)
+q01_col = 4
+
+train_targets = true[train_ind][:, [lambda0_col, q01_col]]
+valid_targets = true[valid_ind][:, [lambda0_col, q01_col]]
+test_targets = true[test_ind][:, [lambda0_col, q01_col]]
 
 # Création des ensembles de données pour l'entraînement et la validation
 train_dataset = TensorDataset(train_inputs, train_targets)
 valid_dataset = TensorDataset(valid_inputs, valid_targets)
 test_dataset = TensorDataset(test_inputs, test_targets)
 
-
-
 # Chargement des ensembles de données dans DataLoader
 train_dl = DataLoader(train_dataset, batch_size=batch_size_max, shuffle=True)
 valid_dl = DataLoader(valid_dataset, batch_size=batch_size_max, shuffle=False)
 test_dl = DataLoader(test_dataset, batch_size=1, shuffle=False)
-
 # Build the neural network
 
 n_input = df_cblv.shape[1]

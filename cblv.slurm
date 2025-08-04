@@ -1,7 +1,7 @@
 #!/bin/bash
-#SBATCH --job-name=bisse_17_check     # Nom du jo
-#SBATCH --output=/gpfswork/rech/hvr/uhd88jk/overfit/Reproduction_resultat/sortie/%x_%j.out      # Standard output (%j sera remplacé par l'ID du job)
-#SBATCH --error=/gpfswork/rech/hvr/uhd88jk/overfit/Reproduction_resultat/sortie/%x_%j.err        # Standard error (%j sera remplacé par l'ID du job)
+#SBATCH --job-name=cblv_check     # Nom du jo
+#SBATCH --output=/lustre/fswork/projects/rech/hvr/uhd88jk/Phylo_Inference/%x_%j.out      # Standard output (%j sera remplacé par l'ID du job)
+#SBATCH --error=/lustre/fswork/projects/rech/hvr/uhd88jk/Phylo_Inference/%x_%j.err        # Standard error (%j sera remplacé par l'ID du job)
 #SBATCH --time=02:00:00             # Limite de temps (HH:MM:SS)
 #SBATCH -C a100
 #SBATCH --nodes=1                   # Nombre de noeuds
@@ -24,5 +24,3 @@ export TORCH_USE_CUDA_DSA=1
 export CUBLAS_WORKSPACE_CONFIG=:16:8
 
 srun python BiSSE/CNN_cblv.py
-
-scp /home/amelie/These/Phylo_Inference/BiSSE/checkpoints/model/bisse/CNN_CBLV_checkpoint.pth jean-zay:/lustre/fswork/projects/rech/hvr/uhd88jk/checkpoints/
