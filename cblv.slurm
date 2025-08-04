@@ -24,3 +24,5 @@ export TORCH_USE_CUDA_DSA=1
 export CUBLAS_WORKSPACE_CONFIG=:16:8
 
 srun python BiSSE/CNN_cblv.py
+
+scp /home/amelie/These/Phylo_Inference/BiSSE/checkpoints/model/bisse/CNN_CBLV_checkpoint.pth jean-zay:/lustre/fswork/projects/rech/hvr/uhd88jk/checkpoints/
