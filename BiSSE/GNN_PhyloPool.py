@@ -20,6 +20,7 @@ os.environ['CUDA_LAUNCH_BLOCKING'] = '1'
 import random
 import matplotlib.pyplot as plt
 import sys
+import logging
 
 random.seed(113)
 np.random.seed(113)
@@ -125,6 +126,7 @@ batch_size_max = 64 # max. number of trees per batch
 
 
 # Now if you use simulations from my own dataset
+base_path = "/lustre/fswork/projects/rech/hvr/uhd88jk/data/"
 file_names = [
     "graph-100k-bisse1.pth",
     "graph-100k-bisse2.pth",
@@ -138,9 +140,9 @@ file_names = [
     "graph-100k-bisse10.pth"
 ]
 
+
 file_paths = [base_path + file_name for file_name in file_names]
 device = "cuda" if torch.cuda.is_available() else "cpu" 
-
 data_list = []
 for file_path in file_paths:
     logging.info(f"Chargement du fichier: {file_path}")
@@ -148,12 +150,15 @@ for file_path in file_paths:
         loaded_data = torch.load(file_path)
         logging.info(f"Nombre d'éléments chargés: {len(loaded_data)}")
         for data in loaded_data:
-            data.x = data.x[:, [0, -1]]  # Conserve first and last column (distance and state)
+            data.x = data.x[:, [0, -1]]  # Conserver seulement la première et dernière colonne
             data_list.append(data.to(device=device))
+    except Exception as e:
+        logging.error(f"Erreur lors du chargement du fichier {file_path}: {e}")
+
+logging.info(f"Taille totale des données: {len(data_list)}")
             
 print("exemple de une target",data_list[0].y)
 print("exemple de une data", data_list[0].x)
-
 n_total = len(data_list)
 n_train = int(0.9 * n_total)  # 90% for training
 n_valid = int(0.05 * n_total) # 5% for validation
@@ -358,7 +363,7 @@ valid_losses = []
 # If checkpoint exists, load the model and don't train it
 check= False
 if check == True:
-    checkpoint = torch.load("checkpoints/model/bisse/GNN_PhyloPool_checkpoint.pth", map_location=torch.device('cpu'))
+    checkpoint = torch.load("/lustre/fswork/projects/rech/hvr/uhd88jk/checkpoints/GNN_PhyloPool_checkpoint.pth", map_location=device)
     model.load_state_dict(checkpoint['model_state_dict'])
 
     n_param = 2
@@ -377,6 +382,7 @@ if check == True:
     lambda_0 = np.sum(np.abs(np.array(pred_list[1]) - np.array(true_list[1])))
     print("Error q01: ", error_qo1/n)
     print("Error lambda0: ", lambda_0/n)
+    np.save("/lustre/fswork/projects/rech/hvr/uhd88jk/data/pred_bisse_GNN_PhyloPool.npy", pred_list)
 
     fig, axs = plt.subplots(1, 2, figsize=(12, 6))
 

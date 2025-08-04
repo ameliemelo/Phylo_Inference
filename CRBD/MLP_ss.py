@@ -15,11 +15,27 @@ from sklearn.preprocessing import StandardScaler
 torch.manual_seed(113)
 np.random.seed(113)
 
+def scale_summary_statistics(df, n_taxa):
+    # Identifier les colonnes à mettre à l'échelle
+    col_ltt_t = [col for col in df.columns if col.startswith("ltt_t")]
+    col_ltt_n = [col for col in df.columns if col.startswith("ltt_N")]
+    col_ss = [col for col in df.columns if col not in col_ltt_t + col_ltt_n ]
+    
+    # Mettre à l'échelle les colonnes ltt_t et ltt_N
+    df[col_ltt_t] /= abs(df[col_ltt_t].min())
+    df[col_ltt_n] /= n_taxa
+    
+    # Mettre à l'échelle les autres colonnes
+    scaler = StandardScaler()
+    df[col_ss] = scaler.fit_transform(df[col_ss])
+    
+    return df
+
 
 # Global parameters
 device = "cpu" # which GPU to use 
 batch_size_max = 64 
-n_train = 9000 # size of training set 
+n_train = 90000 # size of training set 
 n_valid = 5000 # size of validation set 
 n_test  = 5000 # size of test set 
 
@@ -33,8 +49,8 @@ readRDS = robjects.r['readRDS']
 df_sumstat = readRDS(fname_sumstat)
 df_sumstat = pandas2ri.rpy2py(df_sumstat) # data.frame containing tree information
 df_sumstat = df_sumstat.iloc[:, :-2] # remove true parameters
+df_sumstat= scale_summary_statistics(df_sumstat,1000)
 n_trees = len(df_sumstat) 
-
 
 df_param = readRDS(fname_param)
 true = pandas2ri.rpy2py(df_param) # data.frame containing target parameters
@@ -52,7 +68,7 @@ valid_ind = ind[n_train:n_train + n_valid]
 test_ind  = ind[n_train + n_valid:] 
 indices = np.array(test_ind)
 
-
+print(len(train_ind), len(valid_ind), len(test_ind))
 
 # Creating train, valid and test set 
 train_inputs = torch.tensor(df_sumstat.iloc[train_ind].values).float().to(device)
@@ -146,7 +162,7 @@ valid_losses = []
 # If checkpoint exists, load the model and don't train it
 check= True
 if check == True:
-    checkpoint = torch.load("crbd/MLP_SS_checkpoint.pth", map_location=torch.device('cpu'))
+    checkpoint = torch.load("/home/amelie/These/Phylo_Inference/CRBD/crbd/MLP_SS_checkpoint.pth", map_location=torch.device('cpu'))
     dnn.load_state_dict(checkpoint['model_state_dict'])
 
     dnn.eval()
@@ -159,30 +175,35 @@ if check == True:
         p = output.detach().cpu().numpy() 
         for i in range(n_out):
             pred[i].extend(p[:, i])
-            true_list[i].extend(targets[:, i].cpu().numpy()) 
+            true_list[i].extend(targets.detach().cpu().numpy()[:, i]) 
+            
 
     # Calcul des erreurs
     n = len(pred[0])
-    error_qo1 = np.sum(np.abs(np.array(pred[0]) - np.array(true_list[0])))
-    lambda_0 = np.sum(np.abs(np.array(pred[1]) - np.array(true_list[1])))
+    lambda_ = np.sum(np.abs(np.array(pred[0]) - np.array(true_list[0])))
+    mu = np.sum(np.abs(np.array(pred[1]) - np.array(true_list[1])))
 
-    print("Error q01: ", error_qo1 / n)
-    print("Error lambda0: ", lambda_0 / n)
+    print("Error lambda_: ", lambda_ / n)
+    print("Error mu: ", mu / n)
+    pred_array = np.array(pred)        
+    true_array = np.array(true_list)  
+
+    np.save("/home/amelie/These/Phylo_Inference/CRBD/results/pred_crbd_MLP_ss.npy", pred_array)
 
     fig, axs = plt.subplots(1, 2, figsize=(12, 6))
 
-    axs[0].scatter(true_list[0], pred[0], color='blue', label="lambda0")
+    axs[0].scatter(true_list[0], pred[0], color='blue', label="lambda")
     axs[0].plot(true_list[0], true_list[0], color='red', linestyle='--', label='Ideal line')
     axs[0].set_xlabel('True Value')
     axs[0].set_ylabel('Predicted Value')
-    axs[0].set_title('Parameter lambda0')
+    axs[0].set_title('Parameter lambda')
     axs[0].legend()
 
-    axs[1].scatter(true_list[1], pred[1], color='blue', label="q01")
+    axs[1].scatter(true_list[1], pred[1], color='blue', label="mu")
     axs[1].plot(true_list[1], true_list[1], color='red', linestyle='--', label='Ideal line')
     axs[1].set_xlabel('True Value')
     axs[1].set_ylabel('Predicted Value')
-    axs[1].set_title('Parameter q01')
+    axs[1].set_title('Parameter mu')
     axs[1].legend()
 
     plt.tight_layout()
@@ -221,6 +242,10 @@ while epoch < n_epochs and trigger < patience:
 
     epoch += 1
 
+checkpoint = {'model_state_dict': dnn.state_dict()}
+checkpoint_path = "/home/amelie/These/Phylo_Inference/CRBD/crbd/MLP_SS_checkpoint2.pth"
+torch.save(checkpoint, checkpoint_path)
+
 plt.plot(range(1, len(train_losses) + 1), train_losses, label='Training Loss')
 plt.plot(range(1, len(valid_losses) + 1), valid_losses, label='Validation Loss')
 plt.xlabel('Epoch')
@@ -235,6 +260,7 @@ plt.show()
 
 dnn.eval()
 pred = [[] for _ in range(n_out)]
+true_list = [[] for _ in range(n_out)] 
 with torch.no_grad():
     for inputs, targets in tqdm(test_dl):
         inputs, targets = inputs.to(device), targets.to(device)
@@ -242,13 +268,8 @@ with torch.no_grad():
         p = output.cpu().numpy()
         for i in range(n_out):
             pred[i].extend(p[:, i])
+            true_list[i].extend(targets.detach().cpu().numpy()[:, i]) 
 
-
-pred_np = np.array(pred)
-
-# Specify the path to save the predictions
-file_path = "pred_crbd_MLP_ss.npy"
-np.save(file_path, pred_np)     
 
 
 true = {'lambda': true['lambda'], 'mu': true['mu']}

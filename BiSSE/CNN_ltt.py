@@ -29,7 +29,7 @@ n_train = 900000# size of training set
 n_valid = 50000# size of validation set 
 n_test  = 50000
 # We use the data directly from the graph structure since the LTT (Lineage Through Time) information  is stored in the first column of the node features.
-base_path = "/home/amelie/These/Phylo_Inference/data/"
+base_path = "/lustre/fswork/projects/rech/hvr/uhd88jk/data/"
 file_names = [
     "graph-100k-bisse1.pth",
     "graph-100k-bisse2.pth",
@@ -78,7 +78,7 @@ train_ind = ind[0:n_train]
 valid_ind = ind[n_train:n_train + n_valid]  
 test_ind  = ind[n_train + n_valid:] 
 
-np.save("test_indices.npy", test_ind)
+np.save("/lustre/fswork/projects/rech/hvr/uhd88jk/data/test_indices_bisse.npy", test_ind)
 
 train_inputs = final_data_tensor[train_ind]
 valid_inputs = final_data_tensor[valid_ind]
@@ -86,7 +86,7 @@ test_inputs = final_data_tensor[test_ind]
 
 # You can easily transform the .rds file into .csv file for the parameter
 # Now for the true parameters
-param_base_path = "/home/amelie/These/Phylo_Inference/data/"
+param_base_path = "/lustre/fswork/projects/rech/hvr/uhd88jk/data/"
 param_file_names = [
     "true-parameters-100k-bisse1.csv",
     "true-parameters-100k-bisse2.csv",
@@ -196,9 +196,9 @@ weight_decay = 0
 amsgrad = False
 
 # If checkpoint exists, load the model and don't train it
-check= False
+check= True
 if check == True:
-    checkpoint = torch.load("checkpoints/model/bisse/CNN_LTT_checkpoint.pth", map_location=torch.device('cpu'))
+    checkpoint = torch.load("/lustre/fswork/projects/rech/hvr/uhd88jk/checkpoints/CNN_LTT_checkpoint.pth", map_location=device)
     cnn.load_state_dict(checkpoint['model_state_dict'])
 
     cnn.eval()
@@ -220,6 +220,7 @@ if check == True:
 
     print("Error q01: ", error_qo1 / n)
     print("Error lambda0: ", lambda_0 / n)
+    np.save("/lustre/fswork/projects/rech/hvr/uhd88jk/data/pred_bisse_CNN_ltt.npy", pred)
 
     fig, axs = plt.subplots(1, 2, figsize=(12, 6))
 

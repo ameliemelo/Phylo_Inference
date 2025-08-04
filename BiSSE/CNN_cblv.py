@@ -29,7 +29,7 @@ batch_size_max = 64
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
-base_path = "/home/amelie/These/Phylo_Inference/data/"  
+base_path = "/lustre/fswork/projects/rech/hvr/uhd88jk/data/"  
 file_names = [
     "cblv-100k-bisse1.rds",
     "cblv-100k-bisse2.rds",
@@ -58,7 +58,7 @@ df_cblv = pd.concat(all_dfs, axis=0)
 print(f"Taille totale du dataset concaténé : {df_cblv.shape}")
 
 # Now for the true parameters
-param_base_path =  "/home/amelie/These/Phylo_Inference/data/" 
+param_base_path =  "/lustre/fswork/projects/rech/hvr/uhd88jk/data/"
 param_file_names = [
     "true-parameters-100k-bisse1.rds",
     "true-parameters-100k-bisse2.rds",
@@ -201,7 +201,7 @@ amsgrad = False
 # If checkpoint exists, load the model and don't train it
 check= True
 if check == True:
-    checkpoint = torch.load("checkpoints/model/bisse/CNN_CBLV_checkpoint.pth", map_location=torch.device('cpu'))
+    checkpoint = torch.load("/lustre/fswork/projects/rech/hvr/uhd88jk/checkpoints/CNN_CBLV_checkpoint.pth", map_location=device)
     cnn.load_state_dict(checkpoint['model_state_dict'])
 
     cnn.eval()
@@ -223,6 +223,8 @@ if check == True:
 
     print("Error q01: ", error_qo1 / n)
     print("Error lambda0: ", lambda_0 / n)
+
+    np.save("/lustre/fswork/projects/rech/hvr/uhd88jk/data/pred_bisse_MLP_ss.npy", pred)
 
     fig, axs = plt.subplots(1, 2, figsize=(12, 6))
 

@@ -11,6 +11,7 @@ from tqdm import tqdm
 import rpy2.robjects as robjects # load R object 
 from rpy2.robjects import pandas2ri # load R object 
 import warnings
+import logging
 warnings.filterwarnings("ignore")
 import time
 import os
@@ -121,6 +122,7 @@ batch_size_max = 64 # max. number of trees per batch
 
 
 # Now if you use simulations from my own dataset
+base_path = "/lustre/fswork/projects/rech/hvr/uhd88jk/data/"
 file_names = [
     "graph-100k-bisse1.pth",
     "graph-100k-bisse2.pth",
@@ -136,7 +138,6 @@ file_names = [
 
 file_paths = [base_path + file_name for file_name in file_names]
 device = "cuda" if torch.cuda.is_available() else "cpu" 
-
 data_list = []
 for file_path in file_paths:
     logging.info(f"Chargement du fichier: {file_path}")
@@ -144,8 +145,12 @@ for file_path in file_paths:
         loaded_data = torch.load(file_path)
         logging.info(f"Nombre d'éléments chargés: {len(loaded_data)}")
         for data in loaded_data:
-            data.x = data.x[:, [0, -1]]  # Conserve first and last column (distance and state)
+            data.x = data.x[:, [0, -1]]  # Conserver seulement la première et dernière colonne
             data_list.append(data.to(device=device))
+    except Exception as e:
+        logging.error(f"Erreur lors du chargement du fichier {file_path}: {e}")
+
+logging.info(f"Taille totale des données: {len(data_list)}")
             
 print("exemple de une target",data_list[0].y)
 print("exemple de une data", data_list[0].x)
@@ -267,97 +272,7 @@ model = GCN(n_in, n_out, n_hidden, p_dropout).to(device=device)
 # If checkpoint exists, load the model and don't train it
 check= True
 if check == True:
-    checkpoint = torch.load("checkpoints/model/bisse/GNN_avg_checkpointn_param = len(df_param) # number of parameters to guess for each tree 
-n_trees =len(df_graph) # total number of trees of the dataset 
-
-# Format data 
-
-def convert_df_to_tensor(df_node, df_edge, params):
-
-    """
-    Convert the data frames containing node and edge information 
-    to a torch tensor that can be used to feed neural 
-    """
-    # Sort the nodes by their indices
-    df_node_sorted = df_node.sort_values(by=df_node.columns[0])
-    n_node, n_edge = df_node_sorted.shape[0], df_edge.shape[0]
-    l1, l2 = [], []
-
-    # Update edge indices based on the new node order
-    node_id_map = {old_id: new_id for new_id, old_id in enumerate(df_node_sorted.index)}
-    for i in range(n_edge):
-        edge = df_edge.iloc[i]
-        u, v = node_id_map[str(int(edge[0]))], node_id_map[str(int(edge[1]))]
-        l1.extend([u, v])
-        l2.extend([v, u])   
-    edge_index = torch.tensor([l1, l2], dtype=torch.long)
-    max_value = df_node_sorted['dist'].max().max()
-
-    # Subtract the maximum value from each element in the DataFrame
-    df_node_sorted['dist'] -= max_value
-
-    tolerance = 1e-9
-    df_node_sorted['dist'] = df_node_sorted['dist'].apply(lambda x: 0 if np.abs(x) < tolerance else x)
-
-    # Replace values in 'state' column: -1 -> 0 and 0 -> -1
-    df_node_sorted['state'] = df_node_sorted['state'].replace({-1: 0, 0: -1})
-
-    x = torch.tensor(df_node_sorted.values, dtype=torch.float)
-    y = torch.tensor(params, dtype=torch.float)
-
-    data = Data(x=x, edge_index=edge_index, y=y)
-    return data
-
-fname="/home/amelie/These/Phylo_Inference/data/graph-100k-bisse_dist_tips_sorted_maxvalue_geomtensor.obj"
-
-
-
-
-if (not load_data):
-
-    data_list  = []
-    print("Formating data...")
-    for n in tqdm(range(n_trees)):
-        df_node, df_edge = df_graph[n][0], df_graph[n][1] # get the node and edge information 
-        with (robjects.default_converter + pandas2ri.converter).context(): 
-            df_edge= robjects.conversion.get_conversion().rpy2py(df_edge)
-            df_node= robjects.conversion.get_conversion().rpy2py(df_node)
-            columns_to_drop = ['mean.edge','time.asym', 'clade.asym', 'descendant', 'ancestor']
-            df_node = df_node.drop(columns=columns_to_drop)
-        selected_indices = [0, 4]  # 0 and 1 for crbd and 0 and 4 for bisse
-        params = [df_param[i][n] for i in selected_indices]
-        data = convert_df_to_tensor(df_node, df_edge, params)
-        data_list.append(data)
-    print("Formating data... Done.")
-
-    file = open(fname, "wb") # file handler 
-    pickle.dump(data_list, file) # save data_list
-    print("Formated data saved.")
-
-else:
-
-    file = open(fname, "rb")
-    data_list = pickle.load(file)
-print(data_list[0].x)
-
-# Choosing the tree indices for training, validation and test randomly 
-ind = np.arange(0, n_trees) 
-np.random.shuffle(ind) 
-
-train_ind = ind[0:n_train]  
-valid_ind = ind[n_train:n_train + n_valid]  
-test_ind  = ind[n_train + n_valid:] 
-
-# Splitting the dataset between training, validation and test
-
-train_data = [data_list[i].to(device=device) for i in train_ind]
-valid_data = [data_list[i].to(device=device) for i in valid_ind]
-test_data  = [data_list[i].to(device=device) for i in test_ind]
-
-# Converting the list to DataLoader
-train_dl = DataLoader(train_data, batch_size = batch_size_max, shuffle = True)
-valid_dl = DataLoader(valid_data, batch_size = batch_size_max, shuffle = False)
-test_dl  = DataLoader(test_data , batch_size = 1).pth", map_location=torch.device('cpu'))
+    checkpoint = torch.load("/lustre/fswork/projects/rech/hvr/uhd88jk/checkpoints/GNN_avg_checkpoint", map_location=device)
     model.load_state_dict(checkpoint['model_state_dict'])
 
     n_param = 2
@@ -376,6 +291,8 @@ test_dl  = DataLoader(test_data , batch_size = 1).pth", map_location=torch.devic
     lambda_0 = np.sum(np.abs(np.array(pred_list[1]) - np.array(true_list[1])))
     print("Error q01: ", error_qo1/n)
     print("Error lambda0: ", lambda_0/n)
+
+    np.save("/lustre/fswork/projects/rech/hvr/uhd88jk/data/pred_bisse_GNN_avg.npy", pred_list)
 
     fig, axs = plt.subplots(1, 2, figsize=(12, 6))
 
@@ -460,7 +377,7 @@ for data in test_dl:
 
 pred_np = np.array(pred_list)
 
-file_path = "pred_bisse_GNN_avg.npy"
+file_path = "/lustre/fswork/projects/rech/hvr/uhd88jk/data/pred_bisse_GNN_avg.npy"
 
 np.save(file_path, pred_np)     
 

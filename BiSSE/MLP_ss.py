@@ -17,7 +17,7 @@ import sys
 
 print("Chargement des données")
 
-base_path = "/home/amelie/These/Phylo_Inference/data/" 
+base_path = "/lustre/fswork/projects/rech/hvr/uhd88jk/data/" 
 file_names = [
     "sumstat-100k-bisse1.rds",
     "sumstat-100k-bisse2.rds",
@@ -61,9 +61,9 @@ np.random.shuffle(ind)
 train_ind = ind[0:n_train]  
 valid_ind = ind[n_train:n_train + n_valid]  
 test_ind  = ind[n_train + n_valid:] 
+np.save("test_indices_bisse.npy", test_ind)  # Save the test indices for later use
 
-
-param_base_path = "/home/amelie/These/Phylo_Inference/data/"
+param_base_path = "/lustre/fswork/projects/rech/hvr/uhd88jk/data/"
 param_file_names = [
     "true-parameters-100k-bisse1.rds",
     "true-parameters-100k-bisse2.rds",
@@ -160,7 +160,7 @@ loss_fn = nn.L1Loss()
 # If checkpoint exists, load the model and don't train it
 check= True
 if check == True:
-    checkpoint = torch.load("checkpoints/model/bisse/MLP_SS_checkpoint.pth", map_location=torch.device('cpu'))
+    checkpoint = torch.load("/lustre/fswork/projects/rech/hvr/uhd88jk/checkpoints/MLP_SS_checkpoint.pth", map_location=device)
     dnn.load_state_dict(checkpoint['model_state_dict'])
 
     dnn.eval()
@@ -182,6 +182,11 @@ if check == True:
 
     print("Error q01: ", error_qo1 / n)
     print("Error lambda0: ", lambda_0 / n)
+
+    pred_array = np.array(pred)      
+    true_array = np.array(true_list) 
+    np.save("/lustre/fswork/projects/rech/hvr/uhd88jk/data/pred_bisse_MPL_ss.npy", pred_array)
+    np.save("/lustre/fswork/projects/rech/hvr/uhd88jk/data/true_bisse.npy", true_array)
 
     fig, axs = plt.subplots(1, 2, figsize=(12, 6))
 

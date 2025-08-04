@@ -40,87 +40,96 @@ n_train = 90000 # size of training set
 n_valid = 5000 # size of validation set 
 n_test  = 5000
 
-pandas2ri.activate()
-fname_graph = "/home/amelie/These/Phylo_Inference/data/graph-100k-crbd.rds"
-fname_param = "/home/amelie/These/Phylo_Inference/data/true-parameters-100k-crbd.rds"
-readRDS = robjects.r['readRDS']
-df_graph = readRDS(fname_graph)
-df_graph = pandas2ri.rpy2py(df_graph) # data.frame containing tree information
+# If you have created your own dataset from the github use this code
 
-df_param = readRDS(fname_param)
-df_param = pandas2ri.rpy2py(df_param) # data.frame containing target parameters
+# pandas2ri.activate()
+# fname_graph = "/home/amelie/These/Phylo_Inference/data/graph-100k-crbd.rds"
+# fname_param = "/home/amelie/These/Phylo_Inference/data/true-parameters-100k-crbd.rds"
+# readRDS = robjects.r['readRDS']
+# df_graph = readRDS(fname_graph)
+# df_graph = pandas2ri.rpy2py(df_graph) # data.frame containing tree information
 
-n_param = len(df_param) # number of parameters to guess for each tree 
-n_trees =len(df_graph) # total number of trees of the dataset 
+# df_param = readRDS(fname_param)
+# df_param = pandas2ri.rpy2py(df_param) # data.frame containing target parameters
+
+# n_param = len(df_param) # number of parameters to guess for each tree 
+# n_trees =len(df_graph) # total number of trees of the dataset 
 
 
-# Format data 
+# # Format data 
 
-def convert_df_to_tensor(df_node, df_edge, params):
+# def convert_df_to_tensor(df_node, df_edge, params):
 
-    """
-    Convert the data frames containing node and edge information 
-    to a torch tensor that can be used to feed neural 
-    """
-    # Sort the nodes by their indices
-    df_node_sorted = df_node.sort_values(by=df_node.columns[0])
-    n_node, n_edge = df_node_sorted.shape[0], df_edge.shape[0]
-    l1, l2 = [], []
+#     """
+#     Convert the data frames containing node and edge information 
+#     to a torch tensor that can be used to feed neural 
+#     """
+#     # Sort the nodes by their indices
+#     df_node_sorted = df_node.sort_values(by=df_node.columns[0])
+#     n_node, n_edge = df_node_sorted.shape[0], df_edge.shape[0]
+#     l1, l2 = [], []
 
-    # Update edge indices based on the new node order
-    node_id_map = {old_id: new_id for new_id, old_id in enumerate(df_node_sorted.index)}
-    for i in range(n_edge):
-        edge = df_edge.iloc[i]
-        u, v = node_id_map[str(int(edge[0]))], node_id_map[str(int(edge[1]))]
-        l1.extend([u, v])
-        l2.extend([v, u])   
-    edge_index = torch.tensor([l1, l2], dtype=torch.long)
-    max_value = df_node_sorted['dist'].max().max()
+#     # Update edge indices based on the new node order
+#     node_id_map = {old_id: new_id for new_id, old_id in enumerate(df_node_sorted.index)}
+#     for i in range(n_edge):
+#         edge = df_edge.iloc[i]
+#         u, v = node_id_map[str(int(edge[0]))], node_id_map[str(int(edge[1]))]
+#         l1.extend([u, v])
+#         l2.extend([v, u])   
+#     edge_index = torch.tensor([l1, l2], dtype=torch.long)
+#     max_value = df_node_sorted['dist'].max().max()
 
-    # Subtract the maximum value from each element in the DataFrame
-    df_node_sorted['dist'] -= max_value
+#     # Subtract the maximum value from each element in the DataFrame
+#     df_node_sorted['dist'] -= max_value
 
-    tolerance = 1e-9
-    df_node_sorted['dist'] = df_node_sorted['dist'].apply(lambda x: 0 if np.abs(x) < tolerance else x)
+#     tolerance = 1e-9
+#     df_node_sorted['dist'] = df_node_sorted['dist'].apply(lambda x: 0 if np.abs(x) < tolerance else x)
 
-    x = torch.tensor(df_node_sorted.values, dtype=torch.float)
-    y = torch.tensor(params, dtype=torch.float)
+#     x = torch.tensor(df_node_sorted.values, dtype=torch.float)
+#     y = torch.tensor(params, dtype=torch.float)
 
-    data = Data(x=x, edge_index=edge_index, y=y)
-    return data
+#     data = Data(x=x, edge_index=edge_index, y=y)
+#     return data
 
+
+
+# # If you generated your own simulations using this GitHub repository, set load_data = False
+
+# if (not load_data):
+
+#     data_list  = []
+#     print("Formating data...")
+#     for n in tqdm(range(n_trees)):
+#         df_node, df_edge = df_graph[n][0], df_graph[n][1] # get the node and edge information 
+#         with (robjects.default_converter + pandas2ri.converter).context(): 
+#             df_edge= robjects.conversion.get_conversion().rpy2py(df_edge)
+#             df_node= robjects.conversion.get_conversion().rpy2py(df_node)
+#             columns_to_drop = ['mean.edge','time.asym', 'clade.asym', 'descendant', 'ancestor']
+#             df_node = df_node.drop(columns=columns_to_drop)
+#         selected_indices = [0, 1]  # drop columns that are not needed
+#         params = [df_param[i][n] for i in selected_indices]
+#         data = convert_df_to_tensor(df_node, df_edge, params)
+#         data_list.append(data)
+#     print("Formating data... Done.")
+
+#     file = open(fname, "wb") # file handler 
+#     pickle.dump(data_list, file) # save data_list
+#     print("Formated data saved.")
+
+# else:
+
+#     file = open(fname, "rb")
+#     data_list = pickle.load(file)
 # Use this file if you are working with the data from my simulations:
-fname="/home/amelie/These/Phylo_Inference/data/graph-100k-crbd_dist_tips_sorted_maxvalue_geomtensor.obj"
+fname = "/home/amelie/These/Phylo_Inference/data/graph-100k-cr_dist_tips_sorted_maxvalue_geomtensor.obj"
 
-# If you generated your own simulations using this GitHub repository, set load_data = False
-
-if (not load_data):
-
-    data_list  = []
-    print("Formating data...")
-    for n in tqdm(range(n_trees)):
-        df_node, df_edge = df_graph[n][0], df_graph[n][1] # get the node and edge information 
-        with (robjects.default_converter + pandas2ri.converter).context(): 
-            df_edge= robjects.conversion.get_conversion().rpy2py(df_edge)
-            df_node= robjects.conversion.get_conversion().rpy2py(df_node)
-            columns_to_drop = ['mean.edge','time.asym', 'clade.asym', 'descendant', 'ancestor']
-            df_node = df_node.drop(columns=columns_to_drop)
-        selected_indices = [0, 1]  # drop columns that are not needed
-        params = [df_param[i][n] for i in selected_indices]
-        data = convert_df_to_tensor(df_node, df_edge, params)
-        data_list.append(data)
-    print("Formating data... Done.")
-
-    file = open(fname, "wb") # file handler 
-    pickle.dump(data_list, file) # save data_list
-    print("Formated data saved.")
-
-else:
-
-    file = open(fname, "rb")
+data_list  = []
+with open(fname, "rb") as file:
     data_list = pickle.load(file)
 
 
+print(data_list[0].x)
+n_trees = len(data_list) # total number of trees of the dataset
 # Choosing the tree indices for training, validation and test randomly 
 ind = np.arange(0, n_trees) 
 np.random.shuffle(ind) 
@@ -320,7 +329,7 @@ valid_losses = []
 # If checkpoint exists, load the model and don't train it
 check= True
 if check == True:
-    checkpoint = torch.load("crbd/GNN_PhyloPool_checkpoint.pth", map_location=torch.device('cpu'))
+    checkpoint = torch.load("/home/amelie/These/Phylo_Inference/CRBD/crbd/GNN_PhyloPool_checkpoint.pth", map_location=torch.device('cpu'))
     model.load_state_dict(checkpoint['model_state_dict'])
 
     n_param = 2
@@ -339,6 +348,11 @@ if check == True:
     lambda_0 = np.sum(np.abs(np.array(pred_list[1]) - np.array(true_list[0])))
     print("Error q01: ", error_qo1/n)
     print("Error lambda0: ", lambda_0/n)
+
+    pred_array = np.array(pred_list)        
+    true_array = np.array(true_list)  
+
+    np.save("/home/amelie/These/Phylo_Inference/CRBD/results/pred_crbd_GNN_PhyloPool.npy", pred_array)
 
     fig, axs = plt.subplots(1, 2, figsize=(12, 6))
 
