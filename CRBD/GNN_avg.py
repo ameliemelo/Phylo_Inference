@@ -9,8 +9,8 @@ import torch_geometric
 import pickle
 import numpy as np
 from tqdm import tqdm
-import rpy2.robjects as robjects # load R object 
-from rpy2.robjects import pandas2ri # load R object 
+# import rpy2.robjects as robjects # load R object 
+# from rpy2.robjects import pandas2ri # load R object 
 import warnings
 warnings.filterwarnings("ignore")
 import time
@@ -247,7 +247,7 @@ valid_losses = []
 # If checkpoint exists, load the model and don't train it
 check= True
 if check == True:
-    checkpoint = torch.load("/home/amelie/These/Phylo_Inference/CRBD/crbd/GNN_avg_checkpoint.pth", map_location=torch.device('cpu'))
+    checkpoint = torch.load("/lustre/fswork/projects/rech/hvr/uhd88jk/Phylo_Inference/CRBD/crbd/GNN_avg_checkpoint.pth", map_location=device)
     model.load_state_dict(checkpoint['model_state_dict'])
 
     n_param = 2

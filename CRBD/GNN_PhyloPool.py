@@ -7,8 +7,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch_geometric.nn import GCNConv
 import torch_geometric
-import rpy2.robjects as robjects # load R object 
-from rpy2.robjects import pandas2ri # load R object 
+# import rpy2.robjects as robjects # load R object 
+# from rpy2.robjects import pandas2ri # load R object 
 from tqdm import tqdm # print progress bar 
 import pickle # save object 
 import numpy as np
@@ -329,7 +329,7 @@ valid_losses = []
 # If checkpoint exists, load the model and don't train it
 check= True
 if check == True:
-    checkpoint = torch.load("/home/amelie/These/Phylo_Inference/CRBD/crbd/GNN_PhyloPool_checkpoint.pth", map_location=torch.device('cpu'))
+    checkpoint = torch.load("/lustre/fswork/projects/rech/hvr/uhd88jk/Phylo_Inference/CRBD/crbd/GNN_PhyloPool_checkpoint.pth", map_location=device)
     model.load_state_dict(checkpoint['model_state_dict'])
 
     n_param = 2
