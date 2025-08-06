@@ -352,7 +352,7 @@ if check == True:
     pred_array = np.array(pred_list)        
     true_array = np.array(true_list)  
 
-    np.save("/home/amelie/These/Phylo_Inference/CRBD/results/pred_crbd_GNN_PhyloPool.npy", pred_array)
+    np.save("/lustre/fswork/projects/rech/hvr/uhd88jk/Phylo_Inference/CRBD/results/pred_crbd_GNN_PhyloPool.npy", pred_array)
 
     fig, axs = plt.subplots(1, 2, figsize=(12, 6))
 
