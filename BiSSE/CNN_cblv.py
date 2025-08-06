@@ -4,8 +4,8 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader, TensorDataset
 import torch.nn.functional as F
-import rpy2.robjects as robjects # load R object 
-from rpy2.robjects import pandas2ri # load R object 
+#import rpy2.robjects as robjects # load R object 
+#from rpy2.robjects import pandas2ri # load R object 
 import matplotlib.pyplot as plt # plot
 import sys
 from tqdm import tqdm # print progress bar  
@@ -44,14 +44,14 @@ file_names = [
 ]
 file_paths = [base_path + file_name for file_name in file_names]
 
-readRDS = robjects.r['readRDS']
+#readRDS = robjects.r['readRDS']
 tensor_list = []
 for file_path in file_paths:
     df_cblv = pd.read_csv(file_path)
     data_tensor = torch.tensor(df_cblv.values).float()
     tensor_list.append(data_tensor)
 
-df_cblv = pd.concat(tensor_list, axis=0)
+df_cblv = torch.cat(tensor_list, dim=0)
 print(f"Taille totale du dataset concaténé : {df_cblv.shape}")
 
 # Now for the true parameters
@@ -102,7 +102,9 @@ test_ind = ind[n_train + n_valid:]
 train_inputs = df_cblv[train_ind]
 valid_inputs = df_cblv[valid_ind]
 test_inputs = df_cblv[test_ind]
-
+print("Taille du jeu de données d'entraînement :", train_inputs.shape)
+print("Taille du jeu de données de validation :", valid_inputs.shape)
+print("Taille du jeu de données de test :", test_inputs.shape)
 
 lambda0_col = 0  # Indice de la colonne 'lambda0' dans le tensor (ajustez si nécessaire)
 q01_col = 4

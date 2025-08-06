@@ -1,12 +1,11 @@
 import torch
-from torch_geometric.data import Data
 from torch_geometric.loader import DataLoader
 import torch.nn as nn
 import torch.nn.functional as F
 from torch_geometric.nn import GCNConv
 import torch_geometric
-import rpy2.robjects as robjects # load R object 
-from rpy2.robjects import pandas2ri # load R object 
+#import rpy2.robjects as robjects # load R object 
+#from rpy2.robjects import pandas2ri # load R object 
 from tqdm import tqdm # print progress bar 
 import pickle # save object 
 import numpy as np
@@ -21,7 +20,7 @@ import random
 import matplotlib.pyplot as plt
 import sys
 import logging
-
+import numpy as np
 random.seed(113)
 np.random.seed(113)
 torch.manual_seed(113)
@@ -37,7 +36,7 @@ torch.use_deterministic_algorithms(True)
 # # Global parameters
 # load_data =False# if data is already saved on the good format, else False
 # device = "cuda" if torch.cuda.is_available() else "cpu"  # Use GPU if available
-batch_size_max = 64 # max. number of trees per batch 
+batch_size_max = 128 # max. number of trees per batch 
 # n_train = 900000 # size of training set 
 # n_valid = 50000 # size of validation set 
 # n_test  = 50000
@@ -186,9 +185,10 @@ test_dl  = DataLoader(test_data, batch_size=1)
 def get_valid_node_indices(initial_num_nodes):
     num_conv_layers =3
     pooling_factor = 2
+    ker_size = 5
     valid_node_count = initial_num_nodes
     for _ in range(num_conv_layers):
-        valid_node_count = (valid_node_count) // pooling_factor
+        valid_node_count = (valid_node_count -(ker_size//2)- (ker_size//2) ) // pooling_factor
 
     return valid_node_count
 
@@ -221,9 +221,9 @@ class GNN(torch.nn.Module):
         for _ in range(1, 2):
             self.message_passing_layers.append(GCNConv(n_hidden, n_hidden))
         self.n_parts=10
-        self.conv1 = nn.Conv1d(in_channels=n_hidden, out_channels=2*n_hidden, kernel_size=ker_size, padding = "same")
-        self.conv2 = nn.Conv1d(in_channels=2*n_hidden, out_channels=4*n_hidden, kernel_size=ker_size, padding="same")
-        self.conv3 = nn.Conv1d(in_channels=4*n_hidden, out_channels=8*n_hidden, kernel_size=ker_size, padding = "same")
+        self.conv1 = nn.Conv1d(in_channels=n_hidden, out_channels=2*n_hidden, kernel_size=ker_size)
+        self.conv2 = nn.Conv1d(in_channels=2*n_hidden, out_channels=4*n_hidden, kernel_size=ker_size)
+        self.conv3 = nn.Conv1d(in_channels=4*n_hidden, out_channels=8*n_hidden, kernel_size=ker_size)
         self.fc1 = nn.Linear(in_features=8*n_hidden*self.n_parts, out_features=100)
         self.fc2 = nn.Linear(100, n_out)
         self.dropout = nn.Dropout(p=p_dropout)
@@ -354,15 +354,15 @@ n_in = data_list[0].num_node_features
 n_out = len(data_list[0].y)
 
 model = GNN(n_in, n_out, n_hidden, ker_size, p_dropout).to(device=device)
-
+num_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+print(f"Number of parameters in the model : {num_params}")
 optimizer = torch.optim.Adam(model.parameters(), lr=0.001, weight_decay=1e-5)
 train_losses = []
 valid_losses = []
 
-
-# If checkpoint exists, load the model and don't train it
-check= False
-if check == True:
+checkpoint_dir = "/lustre/fswork/projects/rech/hvr/uhd88jk/checks/"
+check = True
+if check == True:    # Chargement du modèle
     checkpoint = torch.load("/lustre/fswork/projects/rech/hvr/uhd88jk/checkpoints/GNN_PhyloPool_checkpoint.pth", map_location=device)
     model.load_state_dict(checkpoint['model_state_dict'])
 
@@ -382,29 +382,8 @@ if check == True:
     lambda_0 = np.sum(np.abs(np.array(pred_list[1]) - np.array(true_list[1])))
     print("Error q01: ", error_qo1/n)
     print("Error lambda0: ", lambda_0/n)
-    np.save("/lustre/fswork/projects/rech/hvr/uhd88jk/data/pred_bisse_GNN_PhyloPool.npy", pred_list)
-
-    fig, axs = plt.subplots(1, 2, figsize=(12, 6))
-
-    axs[0].scatter(true_list[0], pred_list[0], color='blue', label="lambda0")
-    axs[0].plot(true_list[0], true_list[0], color='red', linestyle='--', label='Ideal line')
-    axs[0].set_xlabel('True Value')
-    axs[0].set_ylabel('Predicted Value')
-    axs[0].set_title('Parameter lambda0')
-    axs[0].legend()
-
-    axs[1].scatter(true_list[1], pred_list[1], color='blue', label="q01")
-    axs[1].plot(true_list[1], true_list[1], color='red', linestyle='--', label='Ideal line')
-    axs[1].set_xlabel('True Value')
-    axs[1].set_ylabel('Predicted Value')
-    axs[1].set_title('Parameter q01')
-    axs[1].legend()
-
-    plt.tight_layout()
-    plt.show()
-
-    sys.exit()
-
+    np.save("/lustre/fswork/projects/rech/hvr/uhd88jk/data/pred_bisse_GNN_PhyloPool2.npy", pred_list)
+sys.exit()
 
 
 # Training loop 

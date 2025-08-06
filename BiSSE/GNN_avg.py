@@ -8,8 +8,8 @@ import torch_geometric
 import pickle
 import numpy as np
 from tqdm import tqdm
-import rpy2.robjects as robjects # load R object 
-from rpy2.robjects import pandas2ri # load R object 
+#import rpy2.robjects as robjects # load R object 
+#from rpy2.robjects import pandas2ri # load R object 
 import warnings
 import logging
 warnings.filterwarnings("ignore")
@@ -272,7 +272,7 @@ model = GCN(n_in, n_out, n_hidden, p_dropout).to(device=device)
 # If checkpoint exists, load the model and don't train it
 check= True
 if check == True:
-    checkpoint = torch.load("/lustre/fswork/projects/rech/hvr/uhd88jk/checkpoints/GNN_avg_checkpoint", map_location=device)
+    checkpoint = torch.load("/lustre/fswork/projects/rech/hvr/uhd88jk/checkpoints/GNN_avg_checkpoint.pth", map_location=device)
     model.load_state_dict(checkpoint['model_state_dict'])
 
     n_param = 2
