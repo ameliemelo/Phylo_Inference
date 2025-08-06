@@ -121,7 +121,7 @@ n_test  = 5000
 #     file = open(fname, "rb")
 #     data_list = pickle.load(file)
 # Use this file if you are working with the data from my simulations:
-fname = "/home/amelie/These/Phylo_Inference/data/graph-100k-cr_dist_tips_sorted_maxvalue_geomtensor.obj"
+fname = "/lustre/fswork/projects/rech/hvr/uhd88jk/data/graph-100k-cr_dist_tips_sorted_maxvalue_geomtensor.obj"
 
 data_list  = []
 with open(fname, "rb") as file:
@@ -344,8 +344,8 @@ if check == True:
             true_list[n].append(true_params[n])
 
     n = len(pred_list[0])
-    error_qo1 = np.sum(np.abs(np.array(pred_list[0]) - np.array(true_list[1])))
-    lambda_0 = np.sum(np.abs(np.array(pred_list[1]) - np.array(true_list[0])))
+    error_qo1 = np.sum(np.abs(np.array(pred_list[0]) - np.array(true_list[0])))
+    lambda_0 = np.sum(np.abs(np.array(pred_list[1]) - np.array(true_list[1])))
     print("Error q01: ", error_qo1/n)
     print("Error lambda0: ", lambda_0/n)
 

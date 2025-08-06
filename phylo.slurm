@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=check_phylo     # Nom du jo
+#SBATCH --job-name=crbd_phylo     # Nom du jo
 #SBATCH --output=/lustre/fswork/projects/rech/hvr/uhd88jk/Phylo_Inference/%x_%j.out      # Standard output (%j sera remplacé par l'ID du job)
 #SBATCH --error=/lustre/fswork/projects/rech/hvr/uhd88jk/Phylo_Inference/%x_%j.err        # Standard error (%j sera remplacé par l'ID du job)
 #SBATCH --time=02:00:00             # Limite de temps (HH:MM:SS)
@@ -23,4 +23,4 @@ export PYTHONFAULTHANDLER=1
 export TORCH_USE_CUDA_DSA=1
 export CUBLAS_WORKSPACE_CONFIG=:16:8
 
-srun python BiSSE/GNN_PhyloPool.py
+srun python CRBD/GNN_PhyloPool.py
