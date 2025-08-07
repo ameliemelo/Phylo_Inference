@@ -1,4 +1,0 @@
-Taille du tensor : torch.Size([1000000, 1000])
-Shape of concatenated parameter tensor: torch.Size([1000000, 6])
-Error q01:  0.03068446044921875
-Error lambda0:  0.0224141064453125

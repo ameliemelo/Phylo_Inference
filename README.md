@@ -22,4 +22,5 @@ This project uses:
 
    You will find different architectures in the folders `CRBD/` and `BiSSE/`, depending on the model you used.  
    Load the corresponding **checkpoints** for each architecture as needed.
+   If you want to use the same phylogenetic trees, you can download the data from https://doi.org/10.5061/dryad.7h44j0zzq and run the models directly on the provided trees.
 

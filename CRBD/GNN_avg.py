@@ -119,7 +119,7 @@ n_test  = 5000 # size of test set
 #     data_list = pickle.load(file)
     
 # Use this file if you are working with the data from my simulations:
-fname = "/lustre/fswork/projects/rech/hvr/uhd88jk/data/graph-100k-cr_dist_tips_sorted_maxvalue_geomtensor.obj"
+fname = "/data/graph-100k-cr_dist_tips_sorted_maxvalue_geomtensor.obj"
 
 data_list  = []
 with open(fname, "rb") as file:
@@ -158,7 +158,7 @@ class GCN(torch.nn.Module):
         self.conv4 = GCNConv(n_hidden, 2*n_hidden)
         self.fc1  = torch.nn.Linear(2*n_hidden, n_hidden)
         self.fc2  = torch.nn.Linear(n_hidden, n_out)
-        self.dropout = nn.Dropout(p=p_dropout) # Utilisez nn.Dropout au lieu de p_dropout
+        self.dropout = nn.Dropout(p=p_dropout)
 
 
     def forward(self, data):
@@ -247,7 +247,7 @@ valid_losses = []
 # If checkpoint exists, load the model and don't train it
 check= True
 if check == True:
-    checkpoint = torch.load("/lustre/fswork/projects/rech/hvr/uhd88jk/Phylo_Inference/CRBD/crbd/GNN_avg_checkpoint.pth", map_location=device)
+    checkpoint = torch.load("GNN_avg_checkpoint.pth", map_location=device)
     model.load_state_dict(checkpoint['model_state_dict'])
 
     n_param = 2
@@ -269,7 +269,7 @@ if check == True:
     pred_array = np.array(pred_list)        
     true_array = np.array(true_list)  
 
-    np.save("/lustre/fswork/projects/rech/hvr/uhd88jk/Phylo_Inference/CRBD/results/pred_crbd_GNN_avg.npy", pred_array)
+    np.save("/pred_crbd_GNN_avg.npy", pred_array)
 
     fig, axs = plt.subplots(1, 2, figsize=(12, 6))
 

@@ -122,7 +122,7 @@ batch_size_max = 64 # max. number of trees per batch
 
 
 # Now if you use simulations from my own dataset
-base_path = "/lustre/fswork/projects/rech/hvr/uhd88jk/data/"
+base_path = "/data/"
 file_names = [
     "graph-100k-bisse1.pth",
     "graph-100k-bisse2.pth",
@@ -272,7 +272,7 @@ model = GCN(n_in, n_out, n_hidden, p_dropout).to(device=device)
 # If checkpoint exists, load the model and don't train it
 check= True
 if check == True:
-    checkpoint = torch.load("/lustre/fswork/projects/rech/hvr/uhd88jk/checkpoints/GNN_avg_checkpoint.pth", map_location=device)
+    checkpoint = torch.load("/checkpoints/GNN_avg_checkpoint.pth", map_location=device)
     model.load_state_dict(checkpoint['model_state_dict'])
 
     n_param = 2
@@ -287,12 +287,12 @@ if check == True:
             true_list[n].append(true_params[n])
 
     n = len(pred_list[0])
-    error_qo1 = np.sum(np.abs(np.array(pred_list[0]) - np.array(true_list[0])))
-    lambda_0 = np.sum(np.abs(np.array(pred_list[1]) - np.array(true_list[1])))
-    print("Error q01: ", error_qo1/n)
-    print("Error lambda0: ", lambda_0/n)
+    error_lambda_0 = np.sum(np.abs(np.array(pred_list[0]) - np.array(true_list[0])))
+    error_q01 = np.sum(np.abs(np.array(pred_list[1]) - np.array(true_list[1])))
+    print("Error q01: ", error_q01/n)
+    print("Error lambda0: ", error_lambda_0/n)
 
-    np.save("/lustre/fswork/projects/rech/hvr/uhd88jk/data/pred_bisse_GNN_avg.npy", pred_list)
+    np.save("/data/pred_bisse_GNN_avg.npy", pred_list)
 
     fig, axs = plt.subplots(1, 2, figsize=(12, 6))
 

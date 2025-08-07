@@ -29,7 +29,7 @@ n_train = 900000# size of training set
 n_valid = 50000# size of validation set 
 n_test  = 50000
 # We use the data directly from the graph structure since the LTT (Lineage Through Time) information  is stored in the first column of the node features.
-base_path = "/lustre/fswork/projects/rech/hvr/uhd88jk/data/"
+base_path = "/data/"
 file_names = [
     "graph-100k-bisse1.pth",
     "graph-100k-bisse2.pth",
@@ -65,7 +65,7 @@ for file_path in file_paths:
         data_list.append(torch.tensor(data.x))
 
 # Concatenate all tensors into one
-final_data_tensor= torch.cat(data_list, dim=0)  # Résultat : tensor de taille (100000, 1000)
+final_data_tensor= torch.cat(data_list, dim=0)  
 
 print("Taille du tensor :", final_data_tensor.shape)  
 n_trees = len(final_data_tensor)
@@ -78,7 +78,7 @@ train_ind = ind[0:n_train]
 valid_ind = ind[n_train:n_train + n_valid]  
 test_ind  = ind[n_train + n_valid:] 
 
-np.save("/lustre/fswork/projects/rech/hvr/uhd88jk/data/test_indices_bisse.npy", test_ind)
+np.save("/data/test_indices_bisse.npy", test_ind)
 
 train_inputs = final_data_tensor[train_ind]
 valid_inputs = final_data_tensor[valid_ind]
@@ -86,7 +86,7 @@ test_inputs = final_data_tensor[test_ind]
 
 # You can easily transform the .rds file into .csv file for the parameter
 # Now for the true parameters
-param_base_path = "/lustre/fswork/projects/rech/hvr/uhd88jk/data/"
+param_base_path = "/data/"
 param_file_names = [
     "true-parameters-100k-bisse1.csv",
     "true-parameters-100k-bisse2.csv",
@@ -198,7 +198,7 @@ amsgrad = False
 # If checkpoint exists, load the model and don't train it
 check= True
 if check == True:
-    checkpoint = torch.load("/lustre/fswork/projects/rech/hvr/uhd88jk/checkpoints/CNN_LTT_checkpoint.pth", map_location=device)
+    checkpoint = torch.load("/checkpoints/CNN_LTT_checkpoint.pth", map_location=device)
     cnn.load_state_dict(checkpoint['model_state_dict'])
 
     cnn.eval()
@@ -215,12 +215,12 @@ if check == True:
 
     # Calcul des erreurs
     n = len(pred[0])
-    error_qo1 = np.sum(np.abs(np.array(pred[0]) - np.array(true_list[0])))
-    lambda_0 = np.sum(np.abs(np.array(pred[1]) - np.array(true_list[1])))
+    error_lambda_0 = np.sum(np.abs(np.array(pred[0]) - np.array(true_list[0])))
+    error_q01 = np.sum(np.abs(np.array(pred[1]) - np.array(true_list[1])))
 
-    print("Error q01: ", error_qo1 / n)
-    print("Error lambda0: ", lambda_0 / n)
-    np.save("/lustre/fswork/projects/rech/hvr/uhd88jk/data/pred_bisse_CNN_ltt.npy", pred)
+    print("Error q01: ", error_q01 / n)
+    print("Error lambda0: ", error_lambda_0/n)
+    np.save("/data/pred_bisse_CNN_ltt.npy", pred)
 
     fig, axs = plt.subplots(1, 2, figsize=(12, 6))
 

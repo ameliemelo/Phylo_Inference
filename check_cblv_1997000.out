@@ -1,9 +1,0 @@
-Taille totale du dataset concaténé : torch.Size([1000000, 3000])
-Taille totale du DataFrame de paramètres concaténés : torch.Size([1000000, 6])
-Number of tree 1000000
-Taille du jeu de données d'entraînement : torch.Size([900000, 3000])
-Taille du jeu de données de validation : torch.Size([50000, 3000])
-Taille du jeu de données de test : torch.Size([50000, 3000])
-Number of parameters in the model : 1172982
-Error q01:  0.022572939453125
-Error lambda0:  0.00892602294921875

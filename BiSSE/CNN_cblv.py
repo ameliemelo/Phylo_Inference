@@ -29,7 +29,7 @@ batch_size_max = 64
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
-base_path = "/lustre/fswork/projects/rech/hvr/uhd88jk/data/"  
+base_path = "/data/"  
 file_names = [
     "cblv-100k-bisse1.csv",
     "cblv-100k-bisse2.csv",
@@ -55,7 +55,7 @@ df_cblv = torch.cat(tensor_list, dim=0)
 print(f"Taille totale du dataset concaténé : {df_cblv.shape}")
 
 # Now for the true parameters
-param_base_path =  "/lustre/fswork/projects/rech/hvr/uhd88jk/data/"
+param_base_path =  "/data/"
 param_file_names = [
     "true-parameters-100k-bisse1.csv",
     "true-parameters-100k-bisse2.csv",
@@ -194,7 +194,7 @@ amsgrad = False
 # If checkpoint exists, load the model and don't train it
 check= True
 if check == True:
-    checkpoint = torch.load("/lustre/fswork/projects/rech/hvr/uhd88jk/checkpoints/CNN_CBLV_checkpoint.pth", map_location=device)
+    checkpoint = torch.load("/checkpoints/CNN_CBLV_checkpoint.pth", map_location=device)
     cnn.load_state_dict(checkpoint['model_state_dict'])
 
     cnn.eval()
@@ -211,13 +211,13 @@ if check == True:
 
     # Calcul des erreurs
     n = len(pred[0])
-    error_qo1 = np.sum(np.abs(np.array(pred[0]) - np.array(true_list[0])))
-    lambda_0 = np.sum(np.abs(np.array(pred[1]) - np.array(true_list[1])))
+    error_lambda_0 = np.sum(np.abs(np.array(pred[0]) - np.array(true_list[0])))
+    error_q01 = np.sum(np.abs(np.array(pred[1]) - np.array(true_list[1])))
 
-    print("Error q01: ", error_qo1 / n)
-    print("Error lambda0: ", lambda_0 / n)
+    print("Error lambda0: ", error_lambda_0 / n)
+    print("Error q01: ", error_q01 / n)
 
-    np.save("/lustre/fswork/projects/rech/hvr/uhd88jk/data/pred_bisse_MLP_ss.npy", pred)
+    np.save("/data/pred_bisse_CNN_cblv.npy", pred)
 
     fig, axs = plt.subplots(1, 2, figsize=(12, 6))
 

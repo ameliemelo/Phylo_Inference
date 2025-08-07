@@ -34,9 +34,9 @@ torch.use_deterministic_algorithms(True)
 
 # Use this part if you are working with your own simulations generated using the GitHub repository
 # # Global parameters
+batch_size_max = 128 # max. number of trees per batch
 # load_data =False# if data is already saved on the good format, else False
-# device = "cuda" if torch.cuda.is_available() else "cpu"  # Use GPU if available
-batch_size_max = 128 # max. number of trees per batch 
+# device = "cuda" if torch.cuda.is_available() else "cpu"  # Use GPU if available 
 # n_train = 900000 # size of training set 
 # n_valid = 50000 # size of validation set 
 # n_test  = 50000
@@ -94,7 +94,7 @@ batch_size_max = 128 # max. number of trees per batch
 #     return data
 
 
-# fname="/home/amelie/These/Phylo_Inference/data/graph-100k-bisse_dist_tips_sorted_maxvalue_geomtensor.obj"
+# fname="data/graph-100k-bisse_dist_tips_sorted_maxvalue_geomtensor.obj"
 
 
 # if (not load_data):
@@ -125,7 +125,7 @@ batch_size_max = 128 # max. number of trees per batch
 
 
 # Now if you use simulations from my own dataset
-base_path = "/lustre/fswork/projects/rech/hvr/uhd88jk/data/"
+base_path = "/data/"
 file_names = [
     "graph-100k-bisse1.pth",
     "graph-100k-bisse2.pth",
@@ -360,10 +360,10 @@ optimizer = torch.optim.Adam(model.parameters(), lr=0.001, weight_decay=1e-5)
 train_losses = []
 valid_losses = []
 
-checkpoint_dir = "/lustre/fswork/projects/rech/hvr/uhd88jk/checks/"
+
 check = True
 if check == True:    # Chargement du modèle
-    checkpoint = torch.load("/lustre/fswork/projects/rech/hvr/uhd88jk/checkpoints/GNN_PhyloPool_checkpoint.pth", map_location=device)
+    checkpoint = torch.load("/checkpoints/GNN_PhyloPool_checkpoint.pth", map_location=device)
     model.load_state_dict(checkpoint['model_state_dict'])
 
     n_param = 2
@@ -378,12 +378,12 @@ if check == True:    # Chargement du modèle
             true_list[n].append(true_params[n])
 
     n = len(pred_list[0])
-    error_qo1 = np.sum(np.abs(np.array(pred_list[0]) - np.array(true_list[0])))
-    lambda_0 = np.sum(np.abs(np.array(pred_list[1]) - np.array(true_list[1])))
-    print("Error q01: ", error_qo1/n)
-    print("Error lambda0: ", lambda_0/n)
-    np.save("/lustre/fswork/projects/rech/hvr/uhd88jk/data/pred_bisse_GNN_PhyloPool2.npy", pred_list)
-sys.exit()
+    error_lambda_0 = np.sum(np.abs(np.array(pred_list[0]) - np.array(true_list[0])))
+    error_q01 = np.sum(np.abs(np.array(pred_list[1]) - np.array(true_list[1])))
+    print("Error q01: ", error_q01/n)
+    print("Error lambda0: ", error_lambda_0/n)
+    np.save("/data/pred_bisse_GNN_PhyloPool2.npy", pred_list)
+    sys.exit()
 
 
 # Training loop 

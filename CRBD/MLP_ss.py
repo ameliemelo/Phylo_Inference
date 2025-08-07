@@ -42,8 +42,8 @@ n_test  = 5000 # size of test set
 # Loading trees and their corresponding parameters
 
 pandas2ri.activate()
-fname_sumstat = "/home/amelie/These/Phylo_Inference/data/sumstat-100k-crbd.rds"
-fname_param = "/home/amelie/These/Phylo_Inference/data/true-parameters-100k-crbd.rds"
+fname_sumstat = "/data/sumstat-100k-crbd.rds"
+fname_param = "/data/true-parameters-100k-crbd.rds"
 
 readRDS = robjects.r['readRDS']
 df_sumstat = readRDS(fname_sumstat)
@@ -162,7 +162,7 @@ valid_losses = []
 # If checkpoint exists, load the model and don't train it
 check= True
 if check == True:
-    checkpoint = torch.load("/home/amelie/These/Phylo_Inference/CRBD/crbd/MLP_SS_checkpoint.pth", map_location=torch.device('cpu'))
+    checkpoint = torch.load("/MLP_SS_checkpoint.pth", map_location=torch.device('cpu'))
     dnn.load_state_dict(checkpoint['model_state_dict'])
 
     dnn.eval()
@@ -188,7 +188,7 @@ if check == True:
     pred_array = np.array(pred)        
     true_array = np.array(true_list)  
 
-    np.save("/home/amelie/These/Phylo_Inference/CRBD/results/pred_crbd_MLP_ss.npy", pred_array)
+    np.save("/pred_crbd_MLP_ss.npy", pred_array)
 
     fig, axs = plt.subplots(1, 2, figsize=(12, 6))
 
@@ -243,7 +243,7 @@ while epoch < n_epochs and trigger < patience:
     epoch += 1
 
 checkpoint = {'model_state_dict': dnn.state_dict()}
-checkpoint_path = "/home/amelie/These/Phylo_Inference/CRBD/crbd/MLP_SS_checkpoint2.pth"
+checkpoint_path = "/MLP_SS_checkpoint2.pth"
 torch.save(checkpoint, checkpoint_path)
 
 plt.plot(range(1, len(train_losses) + 1), train_losses, label='Training Loss')

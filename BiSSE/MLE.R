@@ -4,12 +4,12 @@ numpy <- import("numpy")
 source("R/phylo-inference-ml.R")
 set.seed(113)
 
-phylo <- readRDS("/home/amelie/These/Phylo_Inference/data/tree-100k-bisse.rds") 
-true_params <- readRDS("/home/amelie/These/Phylo_Inference/data/true-parameters-100k-bisse.rds")
+phylo <- readRDS("/data/tree-bisse.rds") 
+true_params <- readRDS("/data/true-parameters-bisse.rds")
 print(length(phylo))
 
 # Charger le fichier numpy .npy
-test_ind <- numpy$load("/home/amelie/These/Phylo_Inference/BiSSE/test_indices.npy")
+test_ind <- numpy$load("/data/test_indices.npy")
 print(test_ind)
 
 trees <- list()  # Créer une liste pour stocker les arbres

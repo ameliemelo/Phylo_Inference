@@ -28,8 +28,8 @@ n_test  = 5000 # size of test set
 
 pandas2ri.activate()
 
-fname_ltt = "/home/amelie/These/Phylo_Inference/data/ltt-100k-crbd.rds" # crbd or bisse
-fname_param = "/home/amelie/These/Phylo_Inference/data/true-parameters-100k-crbd.rds"
+fname_ltt = "/data/ltt-100k-crbd.rds" # crbd or bisse
+fname_param = "/data/true-parameters-100k-crbd.rds"
 readRDS = robjects.r['readRDS']
 df_ltt = readRDS(fname_ltt)
 
@@ -153,7 +153,7 @@ valid_losses = []
 # If checkpoint exists, load the model and don't train it
 check= True
 if check == True:
-    checkpoint = torch.load("/home/amelie/These/Phylo_Inference/CRBD/crbd/CNN_LTT_checkpoint2.pth", map_location=torch.device('cpu'))
+    checkpoint = torch.load("/CNN_LTT_checkpoint2.pth", map_location=torch.device('cpu'))
     cnn.load_state_dict(checkpoint['model_state_dict'])
 
     cnn.eval()
@@ -178,7 +178,7 @@ if check == True:
     pred_array = np.array(pred)        
     true_array = np.array(true_list)  
 
-    np.save("/home/amelie/These/Phylo_Inference/CRBD/results/pred_crbd_CNN_ltt.npy", pred_array)
+    np.save("/pred_crbd_CNN_ltt.npy", pred_array)
 
     fig, axs = plt.subplots(1, 2, figsize=(12, 6))
 

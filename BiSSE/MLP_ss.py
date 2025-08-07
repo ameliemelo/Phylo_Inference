@@ -17,7 +17,7 @@ import sys
 
 print("Chargement des données")
 
-base_path = "/home/amelie/Stage/Reproduction_resultat/data/" 
+base_path = "/data/" 
 file_names = [
     "sumstat-100k-bisse1.rds",
     "sumstat-100k-bisse2.rds",
@@ -63,7 +63,7 @@ valid_ind = ind[n_train:n_train + n_valid]
 test_ind  = ind[n_train + n_valid:] 
 np.save("test_indices_bisse.npy", test_ind)  # Save the test indices for later use
 
-param_base_path = "/home/amelie/Stage/Reproduction_resultat/data/"
+param_base_path = "/data/"
 param_file_names = [
     "true-parameters-100k-bisse1.rds",
     "true-parameters-100k-bisse2.rds",
@@ -160,7 +160,7 @@ loss_fn = nn.L1Loss()
 # If checkpoint exists, load the model and don't train it
 check= True
 if check == True:
-    checkpoint = torch.load("/home/amelie/These/Phylo_Inference/BiSSE/checkpoints/model/bisse/MLP_SS_checkpoint.pth", map_location=device)
+    checkpoint = torch.load("/checkpoints/MLP_SS_checkpoint.pth", map_location=device)
     dnn.load_state_dict(checkpoint['model_state_dict'])
 
     dnn.eval()
@@ -178,15 +178,15 @@ if check == True:
     # Calcul des erreurs
     n = len(pred[0])
     error_lambda0 = np.sum(np.abs(np.array(pred[0]) - np.array(true_list[0])))
-    q01 = np.sum(np.abs(np.array(pred[1]) - np.array(true_list[1])))
+    error_q01 = np.sum(np.abs(np.array(pred[1]) - np.array(true_list[1])))
 
-    print("Error q01: ", error_lambda0 / n)
-    print("Error lambda0: ", q01 / n)
+    print("Error q01: ", error_q01 / n)
+    print("Error lambda0: ", error_lambda0 / n)
 
     pred_array = np.array(pred)      
     true_array = np.array(true_list) 
-    np.save("/home/amelie/These/Phylo_Inference/BiSSE/checkpoints/model/bisse/pred_bisse_MPL_ss.npy", pred_array)
-    np.save("/home/amelie/These/Phylo_Inference/BiSSE/checkpoints/model/bisse/true_bisse.npy", true_array)
+    np.save("/checkpoints/model/bisse/pred_bisse_MPL_ss.npy", pred_array)
+    np.save("/checkpoints/model/bisse/true_bisse.npy", true_array)
 
     fig, axs = plt.subplots(1, 2, figsize=(12, 6))
 
